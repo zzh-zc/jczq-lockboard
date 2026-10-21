@@ -153,6 +153,7 @@
                 ${chips(m.pick)}
                 ${m.dual ? '<span class="chip">买两边</span>' : '<span class="chip">买一边</span>'}
                 ${envChip(m)}
+                ${injChip(m)}
               </div>
               <div class="script-line fx-mini">
                 ${(m.hadPicks || showPick(m.pick).split("/").filter(Boolean)).join(" ")}
@@ -229,6 +230,14 @@
     return "";
   }
 
+  function injChip(m) {
+    const pack = m.form || (window.CC_FORM ? CC_FORM.lookup(m) : null);
+    if (!pack) return "";
+    const n = ((pack.homeSide && pack.homeSide.injuries) || []).length + ((pack.awaySide && pack.awaySide.injuries) || []).length;
+    if (!n) return '<span class="chip">无伤停</span>';
+    return `<span class="chip cold">伤停 ${n}</span>`;
+  }
+
   function gateChip(m) {
     const g = m.engine && m.engine.gate;
     if (!g) return "";
@@ -254,6 +263,51 @@
           </div>
         `).join("")}
         <p class="fx-note">${m.scriptNote || "比分、进球、半全场跟着胜平负走。"}</p>
+      </div>
+    `;
+  }
+
+  function streakHtml(pack) {
+    return String((pack && pack.streak) || "").split("").map((ch) =>
+      `<i class="wdl ${ch === "W" ? "home" : ch === "L" ? "away" : "draw"}">${ch === "W" ? "胜" : ch === "L" ? "负" : "平"}</i>`
+    ).join("");
+  }
+
+  function injList(list, empty) {
+    if (!list || !list.length) return `<p class="kicker">${empty}</p>`;
+    return `<ul class="inj-list">${list.map((p) => {
+      const why = String(p.reason || "").replace(/^伤停\s*·\s*/, "");
+      return `<li><b>${p.no != null ? p.no + " " : ""}${p.name}</b> ${p.pos || ""}　${why}</li>`;
+    }).join("")}</ul>`;
+  }
+
+  function renderScout(m) {
+    const pack = m.form || (window.CC_FORM ? CC_FORM.lookup(m) : null);
+    if (!pack) {
+      return `<div class="fx-scout"><div class="fx-assist-head">伤停 / 主客能力</div><p class="fx-note">这场还没有赛程底稿。友谊赛不计入。伤停不改锁号。</p></div>`;
+    }
+    const hs = pack.homeSide || {};
+    const as = pack.awaySide || {};
+    return `
+      <div class="fx-scout">
+        <div class="fx-assist-head">伤停 / 主客能力　友谊赛已剔除</div>
+        <div class="scout-grid">
+          <div>
+            <h4>${m.home} · 伤停</h4>
+            ${injList(hs.injuries, "无公开伤停")}
+            <h4>主场近 ${hs.venue && hs.venue.n ? hs.venue.n : 0} 场</h4>
+            <p class="kicker">${window.CC_FORM ? CC_FORM.wd(hs.venue) : ""}</p>
+            <div class="wdl-row">${streakHtml(hs.venue)}</div>
+          </div>
+          <div>
+            <h4>${m.away} · 伤停</h4>
+            ${injList(as.injuries, "无公开伤停")}
+            <h4>客场近 ${as.road && as.road.n ? as.road.n : 0} 场</h4>
+            <p class="kicker">${window.CC_FORM ? CC_FORM.wd(as.road) : ""}</p>
+            <div class="wdl-row">${streakHtml(as.road)}</div>
+          </div>
+        </div>
+        <p class="fx-note">内容底稿。公开伤停通常已定价，不改锁号。出战成疑才标成未吃进盘口。</p>
       </div>
     `;
   }
@@ -304,7 +358,7 @@
 
   function unpriced(m) {
     const get = (name) => ((m.factors || []).find((f) => f.name === name) || {}).text || "";
-    const fresh = (text) => /点名|不上|B\s*队|确认轮换|预计不上|官宣/.test(text || "");
+    const fresh = (text) => /点名|不上|B\s*队|确认轮换|预计不上|官宣|Doubtful|出战成疑|临场/.test(text || "");
     const bits = [];
     if (fresh(get("伤停轮换"))) bits.push(get("伤停轮换"));
     if (fresh(get("发布会"))) bits.push(get("发布会"));
@@ -363,6 +417,7 @@
           `).join("")}
         </div>
       </div>
+      ${renderScout(m)}
       ${renderScripts(m)}
     `;
   }
@@ -383,6 +438,7 @@
       </div>
       <div class="note">${m.summary || ""}</div>
       ${unpriced(m)}
+      ${renderScout(m)}
       ${renderScripts(m)}
     `;
   }
@@ -627,6 +683,7 @@
   setInterval(tickClock, 1000);
   tickClock();
 
+  if (window.CC_FORM) CC_FORM.attachAll();
   topStats();
   render();
   refreshData();

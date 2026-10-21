@@ -503,6 +503,7 @@
   function finish() {
     if (global.CC_EXTRAS) global.CC_EXTRAS.attach();
     else if (global.CC_ENGINE) global.CC_ENGINE.attachAll();
+    if (global.CC_FORM) CC_FORM.attachAll();
   }
 
   global.CC_PRED = { lockOne, apply, applyBeidan, applySfc, capDual, finish };
