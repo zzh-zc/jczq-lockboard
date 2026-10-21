@@ -77,6 +77,20 @@
     return false;
   }
 
+  function reviewOf(m) {
+    if (!m.pick || !m.result) return;
+    m.hit = hitOf(m.pick, m.result);
+    if (m.review) return;
+    const scores = (m.ftScores || []).join("/");
+    const scoreHit = !!(m.score && scores && scores.split("/").indexOf(m.score) >= 0);
+    m.review = m.hit ? "不败中" : "不败挂";
+    m.tag = m.hit ? "复盘中" : "复盘挂";
+    const bits = [m.review, "赛果 " + (m.score || "") + " " + m.result];
+    if (scores) bits.push("比分当时 " + scores + (scoreHit ? " 中了" : " 没中"));
+    bits.push("灯不改");
+    m.summary = bits.join("。") + "。";
+  }
+
   function attachList(list) {
     (list || []).forEach((m) => {
       const hit = lookup(m);
@@ -84,7 +98,7 @@
         m.score = m.score || hit.score;
         m.result = m.result || hit.result;
       }
-      if (m.pick && m.result && m.hit == null) m.hit = hitOf(m.pick, m.result);
+      reviewOf(m);
     });
   }
 
