@@ -69,9 +69,9 @@
   function pickKeys(pick) {
     const p = String(pick || "");
     const keys = [];
-    if (/主|让胜/.test(p) || /(^|[\/])3([\/]|$)/.test(p)) keys.push("h");
+    if (/主|让胜/.test(p) || /(^|\/)胜(\/|$)/.test(p) || /(^|[\/])3([\/]|$)/.test(p)) keys.push("h");
     if (/平|让平/.test(p) || /(^|[\/])1([\/]|$)/.test(p)) keys.push("d");
-    if (/客|让负/.test(p) || /(^|[\/])0([\/]|$)/.test(p)) keys.push("a");
+    if (/客|让负/.test(p) || /(^|\/)负(\/|$)/.test(p) || /(^|[\/])0([\/]|$)/.test(p)) keys.push("a");
     return [...new Set(keys)];
   }
 

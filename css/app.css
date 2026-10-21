@@ -172,6 +172,19 @@ h1, h2, h3 { margin: 0; font-weight: 650; }
 .observe-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .observe-grid span { display: block; color: var(--muted); font-size: 12px; }
 .observe p { margin: 8px 0 0; color: #d5deea; }
+.why-card {
+  margin: 0 0 14px;
+  background: #0b1018;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.why-card .fx-assist-head { background: #1a2230; color: #d5deea; }
+.why-card ol { margin: 0; padding: 8px 12px 10px 28px; }
+.why-card li { margin: 8px 0; }
+.why-card span { display: block; color: var(--amber); font-size: 12px; font-weight: 700; }
+.why-card b { display: block; font-weight: 500; margin: 2px 0; }
+.why-card em { display: block; font-style: normal; color: var(--muted); font-size: 12px; }
 .engine { margin: 0 0 14px; }
 .prob-bar {
   display: flex; height: 28px; border-radius: 8px; overflow: hidden;

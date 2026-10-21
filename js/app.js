@@ -149,9 +149,8 @@
               <div class="teams">${m.home} vs ${m.away}</div>
               <div class="chips">
                 ${lightChip(m)}
-                ${gateChip(m)}
+                ${actionChip(m)}
                 ${chips(m.pick)}
-                ${m.dual ? '<span class="chip">买两边</span>' : '<span class="chip">买一边</span>'}
                 ${envChip(m)}
                 ${injChip(m)}
               </div>
@@ -225,8 +224,14 @@
     if (svg && current && current.ticks) CC_ODDS.drawChart(svg, current.ticks, state.idxTab);
   }
 
+  function actionChip(m) {
+    const a = m.action || (m.dual ? "买两边" : "买一边");
+    const cls = a === "买一边" ? "home" : a === "别碰" || a === "路过" ? "cold" : "draw";
+    return `<span class="chip ${cls}">${a}</span>`;
+  }
+
   function envChip(m) {
-    if (m.env === "掺局区") return '<span class="chip env">少买</span>';
+    if (m.env === "掺局区") return '<span class="chip env">掺局区</span>';
     return "";
   }
 
@@ -315,7 +320,11 @@
   function renderObserve(m) {
     const mk = m.market || { light: "yellow", drift: "两边差不多", veto: "看不出一边倒", quake: "暂时没变", note: "先当胶着，不单边。" };
     const cls = mk.light || "yellow";
-    const title = cls === "green" ? "🟢 清楚 · 可以跟一边" : cls === "red" ? "🔴 市场别碰热门单边 · 仍锁 " + showPick(m.pick || "") : "🟡 胶着 · 不要只买一边";
+    const act = m.action || (m.dual ? "买两边" : "买一边");
+    let title = "🟡 胶着 · " + act;
+    if (cls === "green") title = "🟢 清楚 · " + act;
+    if (cls === "red") title = "🔴 别碰热门单边 · " + act;
+    if (cls === "yellow" && act === "买一边") title = "🟡 胶着 · 路过，不是买一边";
     return `
       <div class="observe ${cls}">
         <div class="observe-light">${title}</div>
@@ -324,9 +333,23 @@
           <div><span>公司吵不吵</span><b>${mk.veto || "—"}</b></div>
           <div><span>临场变没变</span><b>${mk.quake || "—"}</b></div>
         </div>
-        <p>${mk.note || ""}</p>
+        <p>倾向 ${showPick(m.pick)}　动作 ${act}。灯是市场状态，动作才是出不出手。</p>
       </div>
+      ${renderWhy(m)}
       ${renderEngine(m)}
+    `;
+  }
+
+  function renderWhy(m) {
+    const rows = m.why || [];
+    if (!rows.length) return "";
+    return `
+      <div class="why-card">
+        <div class="fx-assist-head">结论怎么来的</div>
+        <ol>
+          ${rows.map((x) => `<li><span>${x.from}</span><b>${x.fact}</b><em>所以 ${x.so}</em></li>`).join("")}
+        </ol>
+      </div>
     `;
   }
 
@@ -349,7 +372,7 @@
           <div><span>亚盘</span><b>${CC_ENGINE.sideLabel(e.ah)}</b></div>
           <div><span>大小</span><b>${CC_ENGINE.sideLabel(e.ou, "ou")}</b></div>
         </div>
-        <div class="gate ${gateCls}">${e.gate} · ${e.layer.label}${e.cover ? " · 两边合起来 " + e.cover.toFixed(2) : ""}</div>
+        <div class="gate ${gateCls}">${e.gate} · ${e.layer.label}${m.dual && e.cover ? " · 两边合起来 " + e.cover.toFixed(2) : (!m.dual && e.mainOdds ? " · 这口赔 " + Number(e.mainOdds).toFixed(2) : "")}</div>
         <p>${e.note}</p>
         <p class="kicker">主 ${CC_ENGINE.flowLabel(e.flow.home)}　客 ${CC_ENGINE.flowLabel(e.flow.away)}　走势是示意，概率按竞彩即时赔率去水</p>
       </div>
@@ -434,9 +457,9 @@
       <div class="verdict">
         <div><span>锁号</span><b>${showPick(m.pick)}${m.combo ? " · 复式 " + m.combo : ""}</b></div>
         <div><span>现在赔率</span><b>${m.sp || "—"}</b></div>
-        <div><span>怎么买</span><b>${m.dual ? "买两边" : "只买一边"}</b></div>
+        <div><span>动作</span><b>${m.action || (m.dual ? "买两边" : "路过")}</b></div>
       </div>
-      <div class="note">${m.summary || ""}</div>
+      <div class="note">${m.action ? "动作 " + m.action + " · 倾向 " + showPick(m.pick) : (m.summary || "")}</div>
       ${unpriced(m)}
       ${renderScout(m)}
       ${renderScripts(m)}
@@ -684,6 +707,8 @@
   tickClock();
 
   if (window.CC_FORM) CC_FORM.attachAll();
+  if (window.CC_ENGINE) CC_ENGINE.attachAll();
+  if (window.CC_PRED && CC_PRED.explainAll) CC_PRED.explainAll();
   topStats();
   render();
   refreshData();

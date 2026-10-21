@@ -324,10 +324,12 @@
     const extras = list.filter((m) => m.dual).sort((a, b) => (keep[a.tag] != null ? keep[a.tag] : 9) - (keep[b.tag] != null ? keep[b.tag] : 9));
     while (list.filter((m) => m.dual).length > limit && extras.length) {
       const m = extras.pop();
+      if (m.env === "掺局区") continue;
       if ((keep[m.tag] != null ? keep[m.tag] : 9) <= 2) break;
       m.dual = false;
       collapsePick(m);
       m.tag = "名额满才单";
+      if (m.light === "green") m.light = "yellow";
     }
   }
 
@@ -339,7 +341,7 @@
       extra || `算法 ${list.length} 场，双选 ${dual}/${list.length}（上限 50%）`,
       green.length ? "跟一边：" + green.join("、") : "这一轮没有清楚的单边",
       stop.length ? "红灯仍锁：" + stop.join("、") : "没有红灯场",
-      "分析助手：比分进球半全场跟着胜平负。伤停未知，点名不上才改号。",
+      "灯是状态，动作才是出不出手。倾向和动作必须一致。",
     ];
   }
 
@@ -460,6 +462,8 @@
     global.CC_DATA.jczq.date = locked[0] ? locked[0].date : global.CC_DATA.jczq.date;
     global.CC_DATA.jczq.buy = buyLines(locked);
     global.CC_DATA.jczq.env = locked.some((m) => m.env === "掺局区") ? "含掺局区，少买" : "高可信为主";
+    const mix = locked.filter((m) => m.env === "掺局区").length;
+    global.CC_DATA.jczq.dualLimit = mix > locked.length * 0.5 ? 1 : 0.5;
     global.CC_DATA._liveAt = pack.updatedAt;
     return locked;
   }
@@ -500,11 +504,103 @@
     return { r9, r14 };
   }
 
+  function actionOf(m) {
+    const g = m.engine && m.engine.gate;
+    if (m.light === "red" || g === "别碰") return "别碰";
+    if (g === "不出手" || g === "路过") return "路过";
+    if (m.env === "掺局区" || m.tag === "名额满才单") return "少买";
+    if (m.dual) return "买两边";
+    if (m.light === "green") return "买一边";
+    return "路过";
+  }
+
+  function formLine(side, key) {
+    const p = side && side[key];
+    if (!p || !p.n) return "样本不足";
+    return p.n + "场" + p.w + "胜" + p.d + "平" + p.l + "负";
+  }
+
+  function writeWhy(m) {
+    if (global.CC_ENGINE && !m.engine) m.engine = CC_ENGINE.read(m);
+    const e = m.engine;
+    const why = [];
+    why.push({
+      from: "联赛环境",
+      fact: (m.league || "") + " → " + (m.env || "未知"),
+      so: m.env === "掺局区" ? "默认胶着，禁止标绿单边进长串" : "高可信，欧亚同向才出单边",
+    });
+    if (e && global.CC_ENGINE) {
+      const h = CC_ENGINE.pct(e.fair.h);
+      const d = CC_ENGINE.pct(e.fair.d);
+      const a = CC_ENGINE.pct(e.fair.a);
+      why.push({
+        from: "竞彩即时 SP",
+        fact: (m.sp || "—") + "，去水后 主" + h + "% / 平" + d + "% / 客" + a + "%，抽水 " + (e.vig * 100).toFixed(1) + "%",
+        so: "钱站" + e.moneySide + "，这是方向，不是已经能买",
+      });
+      why.push({
+        from: "欧亚",
+        fact: "欧赔" + CC_ENGINE.sideLabel(e.eu) + " / 亚盘" + CC_ENGINE.sideLabel(e.ah) + (e.fight ? "，打架" : "，没拧着"),
+        so: e.fight ? "方向不可信，别碰热门单边" : "同向才允许跟",
+      });
+    }
+    const lamp = m.light === "green" ? "清楚" : m.light === "red" ? "别碰热门" : "胶着";
+    why.push({ from: "灯", fact: lamp + (m.tag ? " · " + m.tag : ""), so: m.light === "green" ? "可以写单边倾向" : m.light === "red" ? "热门单边不可信" : "只写不败，不写必胜" });
+    if (e && e.reasons && e.reasons.length) {
+      why.push({
+        from: "出手闸门",
+        fact: e.gate + (e.layer ? " · " + e.layer.label : ""),
+        so: e.reasons.join(""),
+      });
+    }
+    writeWhyForm(m, why);
+    const act = actionOf(m);
+    const pick = String(m.pick || "").replace(/主/g, "胜").replace(/客/g, "负");
+    why.push({ from: "结论", fact: "倾向 " + pick + "，动作 " + act, so: actHint(act) });
+    m.why = why;
+    m.action = act;
+    m.summary = why.map((x) => x.from + "：" + x.fact + " → " + x.so).join("。") + "。";
+  }
+
+  function writeWhyForm(m, why) {
+    const hs = m.form && m.form.homeSide;
+    const as = m.form && m.form.awaySide;
+    if (!hs && !as) return;
+    why.push({
+      from: "主客近8场（友谊赛已剔除）",
+      fact: "主队主场 " + formLine(hs, "venue") + "；客队客场 " + formLine(as, "road"),
+      so: "内容底稿，不改灯",
+    });
+    const inj = [].concat((hs && hs.injuries) || [], (as && as.injuries) || []);
+    const late = inj.some((p) => /Doubtful|出战成疑|临场/.test(String(p.reason || "")));
+    why.push({
+      from: "伤停",
+      fact: inj.length ? ("主" + ((hs && hs.injuries) || []).length + "人 / 客" + ((as && as.injuries) || []).length + "人") : "两边无公开伤停",
+      so: late ? "有出战成疑，盘口可能没吃完，仍不自动改号" : "公开伤停视为已定价，不改号",
+    });
+  }
+
+  function actHint(act) {
+    if (act === "买一边") return "灯绿且闸门允许，才跟一边";
+    if (act === "买两边") return "胶着就包不败，或者路过";
+    if (act === "少买") return "掺局区少买，不进长串";
+    if (act === "别碰") return "别碰热门单边";
+    return "倾向写下，这笔先不出";
+  }
+
+  function explainAll() {
+    ["jczq", "beidan", "r14", "r9"].forEach((key) => {
+      (((global.CC_DATA || {})[key] || {}).matches || []).forEach(writeWhy);
+    });
+  }
+
   function finish() {
     if (global.CC_EXTRAS) global.CC_EXTRAS.attach();
     else if (global.CC_ENGINE) global.CC_ENGINE.attachAll();
     if (global.CC_FORM) CC_FORM.attachAll();
+    if (global.CC_ENGINE) CC_ENGINE.attachAll();
+    explainAll();
   }
 
-  global.CC_PRED = { lockOne, apply, applyBeidan, applySfc, capDual, finish };
+  global.CC_PRED = { lockOne, apply, applyBeidan, applySfc, capDual, finish, explainAll };
 })(window);
