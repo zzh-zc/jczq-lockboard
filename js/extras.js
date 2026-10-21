@@ -25,7 +25,7 @@
 
   const JC = {
     "001": {
-      ftScores: pair("1-0", "2-0"), htScores: pair("0-0", "1-0"),
+      ftScores: pair("2-1", "2-0"), htScores: pair("0-0", "1-0"),
       ftOu: pair("小2.5", "小3.5"), htOu: pair("小1.5", "小0.5"),
       scriptNote: "东京能零封，柏客场刚被灌。脚本小球，半场先磨。",
       iw: iwFlat("2.09 / 3.45 / 2.78", "主略热 平中 客中", "主热和因素同向，不改判。掺局区不进稳。"),
@@ -40,7 +40,7 @@
       ]),
     },
     "002": {
-      ftScores: pair("1-0", "0-1"), htScores: pair("0-0", "1-0"),
+      ftScores: pair("2-1", "1-2"), htScores: pair("0-0", "1-0"),
       ftOu: pair("小2.5", "大2.5"), htOu: pair("小1.5", "大1.5"),
       scriptNote: "对开不写 1-1。平赔 3.40 不是必平。半场先 0-0。",
       iw: iwFlat("2.34 / 3.40 / 2.45", "主客对开 平偏短", "对开盘不单边。变盘未把平打成必平。"),
@@ -429,7 +429,11 @@
       if (!global.CC_DATA[key] || !global.CC_DATA[key].matches) return;
       (global.CC_DATA[key].matches || []).forEach((m) => {
         if (key === "r14" && m.source !== "live") m.date = Number(m.code) <= 7 ? "2026-10-20" : "2026-10-22";
-        const extra = m.source === "live" || m.date === "2026-10-20" ? {} : (pack[m.code] || {});
+        const extra = m.source === "live" || m.date === "2026-10-20" ? {} : Object.assign({}, pack[m.code] || {});
+        delete extra.ftScores;
+        delete extra.htScores;
+        delete extra.ftOu;
+        delete extra.htOu;
         const baked = m.source === "live" ? {
           market: m.market, summary: m.summary,
           ftOu: m.ftOu, ftScores: m.ftScores, htScores: m.htScores, htOu: m.htOu,

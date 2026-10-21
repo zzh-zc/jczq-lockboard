@@ -67,14 +67,14 @@
   }
 
   function pickCrs(rows, side, night) {
+    const tiny = { "0-0": 1, "1-0": 1, "0-1": 1 };
     const list = (rows || []).slice();
     if (!list.length) return [];
-    list.sort((a, b) => a.odds - b.odds);
-    const floor = list[0].odds;
-    const pool = list.filter((r) => r.odds <= floor * 1.45).slice(0, 8);
-    pool.sort((a, b) => preferScore(a, side, night) - preferScore(b, side, night) || a.odds - b.odds);
+    const fat = list.filter((r) => !tiny[r.label] && totOf(r) >= 2);
+    const use = fat.length ? fat : list;
+    use.sort((a, b) => preferScore(a, side, night) - preferScore(b, side, night) || a.odds - b.odds);
     const out = [];
-    pool.forEach((r) => {
+    use.forEach((r) => {
       if (out.indexOf(r.label) < 0) out.push(r.label);
     });
     return out;
@@ -621,6 +621,9 @@
         CC_RESULT.attachList(((global.CC_DATA || {})[key] || {}).matches);
       });
     }
+    ["jczq", "beidan", "r14", "r9"].forEach((key) => {
+      realign(((global.CC_DATA || {})[key] || {}).matches);
+    });
     explainAll();
   }
 
