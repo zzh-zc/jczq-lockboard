@@ -53,14 +53,22 @@
   }
 
   function topStats() {
-    const j = dualStats(CC_DATA.jczq.matches);
-    const b = dualStats(CC_DATA.beidan.matches);
-    const r = CC_DATA.review;
+    const j = dualStats(CC_DATA.jczq.matches.filter((m) => m.source === "live" || !m.result));
+    const b = CC_DATA.beidan.matches || [];
+    const r14 = CC_DATA.r14.matches || [];
     $("topStats").innerHTML = `
-      <div class="stat"><b>${j.dual}/${j.total} · ${(j.pct * 100).toFixed(0)}%</b><span>竞彩双选</span></div>
-      <div class="stat"><b>${b.dual}/${b.total} · ${(b.pct * 100).toFixed(0)}%</b><span>北单双选</span></div>
-      <div class="stat"><b>${r.hit}/${r.total}</b><span>昨夜欧冠 ${((r.hit / r.total) * 100).toFixed(0)}%</span></div>
+      <div class="stat"><b>${j.total}</b><span>竞彩在售</span></div>
+      <div class="stat"><b>${b.length}</b><span>北单在售</span></div>
+      <div class="stat"><b>${(CC_DATA.r9.matches || []).length}/${r14.length}</b><span>任9 / 任14</span></div>
     `;
+  }
+
+  function jumpDateForView() {
+    const data = CC_DATA[state.view];
+    if (!data || !data.matches) return;
+    if (data.matches.some((m) => m.date === state.date)) return;
+    const dates = [...new Set(data.matches.map((m) => m.date).filter(Boolean))].sort();
+    if (dates.length) state.date = dates[0];
   }
 
   function filtered(matches) {
@@ -91,7 +99,7 @@
     const matches = filtered(data.matches);
     const dayMatches = data.matches.filter((m) => m.date === state.date);
     const stats = dualStats(dayMatches);
-    const over = stats.pct >= data.dualLimit;
+    const cap = data.dualLimit == null ? 0.5 : data.dualLimit;
     if (!state.selected || !matches.some((m) => m.id === state.selected)) {
       state.selected = matches[0] ? matches[0].id : null;
     }
@@ -109,9 +117,9 @@
           <button type="button" class="ghost ${state.date === TODAY ? "on" : ""}" id="dayToday">今天</button>
         </div>
         <p class="kicker">${state.date} · ${dateLabel()} · ${matches.length} 场</p>
-        <div class="quota ${over ? "warn" : ""}">
-          <div class="bar"><i style="width:${Math.min(100, stats.pct * 100)}%"></i></div>
-          <p>双选 ${stats.dual}/${stats.total}（${(stats.pct * 100).toFixed(0)}%）· 上限 50%${over ? " · 已顶格" : ""}</p>
+        <div class="quota ${cap < 1 && stats.pct >= cap ? "warn" : ""}">
+          <div class="bar"><i style="width:${Math.min(100, stats.pct * 100 / (cap || 1))}%"></i></div>
+          <p>双选 ${stats.dual}/${stats.total}（${(stats.pct * 100).toFixed(0)}%）${cap < 1 ? " · 上限 " + (cap * 100).toFixed(0) + "%" : " · 任选不卡双选"}${cap < 1 && stats.pct >= cap ? " · 已顶格" : ""}</p>
         </div>
         <div class="filters">
           <input id="q" placeholder="搜球队 / 场次" value="${state.q}" />
@@ -135,8 +143,8 @@
                 ${envChip(m)}
               </div>
               <div class="script-line">
-                <span>${(m.ftScores || ["—", "—"]).join(" / ")}</span>
-                <span>${(m.ftOu || ["—", "—"]).join(" / ")}</span>
+                <span>胜平负 ${(m.hadPicks || String(m.pick || "").split("/")).join("/")}</span>
+                <span>让 ${(m.hhadPicks || []).join("/") || "—"}</span>
               </div>
             </button>
           `).join("") : `<div class="empty">这一天还没有锁号。翻到相邻日期，或点右上角录入。</div>`}
@@ -154,7 +162,7 @@
           <div class="pool-item" data-id="${m.id}">
             <div class="row"><b>${m.code}</b> ${chips(m.pick)}</div>
             <div class="kicker">${m.home} vs ${m.away}${m.paperOppose ? " · 热门别跟" : ""}</div>
-            <div class="script-line">${(m.ftScores || []).join(" / ")} · ${(m.ftOu || []).join(" / ")}</div>
+            <div class="script-line">${(m.hadPicks || []).join("/")} · 让${(m.hhadPicks || []).join("/")}</div>
           </div>
         `).join("") || "<p class='kicker'>无</p>"}
       </aside>
@@ -203,7 +211,7 @@
   }
 
   function envChip(m) {
-    if (m.env === "掺局区") return '<span class="chip env">日职少买</span>';
+    if (m.env === "掺局区") return '<span class="chip env">少买</span>';
     return "";
   }
 
@@ -216,10 +224,11 @@
 
   function renderScripts(m) {
     const cards = [
-      ["全场比分", m.ftScores],
-      ["半场比分", m.htScores],
-      ["全场大小", m.ftOu],
-      ["半场大小", m.htOu],
+      ["胜平负", m.hadPicks || String(m.pick || "").split("/").filter(Boolean)],
+      ["让球", m.hhadPicks],
+      ["比分", m.ftScores],
+      ["进球数", m.ttgPicks || m.ftOu],
+      ["半全场", m.hafuPicks || m.htScores],
     ];
     return `
       <div class="script-grid">
@@ -230,7 +239,7 @@
           </div>
         `).join("")}
       </div>
-      <div class="note">${m.scriptNote || "比分和大小只是参考，买的是上面的锁号。"}</div>
+      <div class="note">${m.scriptNote || "每种两个选择。锁号看胜平负/让球，比分进球半全场不进稳串。"}</div>
     `;
   }
 
@@ -415,7 +424,7 @@
     const day = data.matches.filter((m) => m.date === state.date);
     const lines = [`${data.title}　${state.date}`, ""];
     day.forEach((m) => {
-      const script = m.ftScores ? `　全场 ${m.ftScores.join("/")}　半场 ${m.htScores.join("/")}　大小 ${m.ftOu.join("/")}　半场大小 ${m.htOu.join("/")}` : "";
+      const script = `　胜平负 ${(m.hadPicks || []).join("/") || m.pick}　让球 ${(m.hhadPicks || []).join("/") || "—"}　比分 ${(m.ftScores || []).join("/")}　进球 ${(m.ttgPicks || m.ftOu || []).join("/")}　半全场 ${(m.hafuPicks || []).join("/")}`;
       const lamp = (m.market && m.market.light) === "red" ? "　别碰" : (m.market && m.market.light) === "green" ? "　清楚" : "　胶着";
       lines.push(`${m.code} ${m.home} vs ${m.away}　${m.pick}${lamp}${script}`);
     });
@@ -433,6 +442,7 @@
       state.league = "全部";
       state.risk = "全部";
       state.phonePane = "list";
+      jumpDateForView();
       render();
     };
   });
@@ -550,13 +560,25 @@
         let pack = await CC_LIVE.pull();
         if (window.CC_BOOKS) pack = await CC_BOOKS.enrich(pack);
         const locked = CC_PRED.apply(pack);
-        const dates = [...new Set(locked.map((m) => m.date))].sort();
-        if (dates.length && !locked.some((m) => m.date === state.date)) state.date = dates[0];
+        let bd = { matches: [], live: false };
+        let sfc = { matches: [], live: false, draw: "" };
+        try { bd = await CC_LIVE.pullBjdc(); } catch (e1) { bd = { matches: [], live: false }; }
+        try { sfc = await CC_LIVE.pullSfc(); } catch (e2) { sfc = { matches: [], live: false, draw: "" }; }
+        CC_PRED.applyBeidan(bd, locked);
+        CC_PRED.applySfc(sfc, locked);
+        CC_PRED.finish();
+        const r9Tab = document.querySelector('[data-view="r9"]');
+        const r14Tab = document.querySelector('[data-view="r14"]');
+        const bdTab = document.querySelector('[data-view="beidan"]');
+        if (r9Tab) r9Tab.textContent = "任 9 · " + (sfc.draw || CC_DATA.r9.draw || "");
+        if (r14Tab) r14Tab.textContent = "任 14 · " + (sfc.draw || CC_DATA.r14.draw || "");
+        if (bdTab) bdTab.textContent = "北单 · " + (CC_DATA.beidan.matches || []).length;
+        jumpDateForView();
         topStats();
         render();
         if (hint) {
           const booksTag = pack.booksLive ? " · 含500百家" : pack.booksOk ? " · 500百家缓存" : "";
-          hint.textContent = `算法 ${new Date().toTimeString().slice(0, 5)} · ${locked.length} 场${booksTag}`;
+          hint.textContent = `算法 ${new Date().toTimeString().slice(0, 5)} · 竞彩${locked.length} · 北单${(CC_DATA.beidan.matches || []).length}${booksTag}`;
         }
       } else {
         throw new Error("no live");

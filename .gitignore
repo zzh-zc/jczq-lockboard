@@ -3,4 +3,5 @@
 Thumbs.db
 *.tmp
 _extract_*.txt
+_probe/
 

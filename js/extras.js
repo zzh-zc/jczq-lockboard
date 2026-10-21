@@ -379,14 +379,20 @@
       global.CC_DATA.jczq.matches = PAST_JC.concat(global.CC_DATA.jczq.matches);
       global.CC_DATA._pastMerged = true;
     }
-    const packs = { jczq: JC, beidan: BD, r14: {} };
-    const slateDate = { jczq: "2026-10-21", beidan: "2026-10-21", r14: "2026-10-21" };
-    ["jczq", "beidan", "r14"].forEach((key) => {
+    const packs = { jczq: JC, beidan: BD, r14: {}, r9: {} };
+    const slateDate = { jczq: "2026-10-21", beidan: "2026-10-21", r14: "2026-10-21", r9: "2026-10-21" };
+    ["jczq", "beidan", "r14", "r9"].forEach((key) => {
       const pack = packs[key] || {};
+      if (!global.CC_DATA[key] || !global.CC_DATA[key].matches) return;
       (global.CC_DATA[key].matches || []).forEach((m) => {
         if (key === "r14" && m.source !== "live") m.date = Number(m.code) <= 7 ? "2026-10-20" : "2026-10-22";
         const extra = m.source === "live" || m.date === "2026-10-20" ? {} : (pack[m.code] || {});
-        const baked = m.source === "live" ? { market: m.market, ftOu: m.ftOu, summary: m.summary } : {};
+        const baked = m.source === "live" ? {
+          market: m.market, summary: m.summary,
+          ftOu: m.ftOu, ftScores: m.ftScores, htScores: m.htScores, htOu: m.htOu,
+          hadPicks: m.hadPicks, hhadPicks: m.hhadPicks, ttgPicks: m.ttgPicks, hafuPicks: m.hafuPicks,
+          scriptNote: m.scriptNote,
+        } : {};
         Object.assign(m, defaultExtras(m), extra, baked);
         delete m.agents;
         delete m.tally;

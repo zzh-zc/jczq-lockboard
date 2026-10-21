@@ -249,7 +249,7 @@ label input, label select, label textarea {
 .buy { display: flex; flex-direction: column; gap: 8px; }
 .buy span { background: #0b1018; border: 1px dashed var(--line); border-radius: 8px; padding: 8px 10px; line-height: 1.5; }
 .detail-flow { overflow: auto; min-height: 0; flex: 1; }
-.script-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; flex-shrink: 0; }
+.script-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 8px; margin: 12px 0; flex-shrink: 0; }
 .script-card {
   background: #0b1018; border: 1px solid var(--amber); border-radius: 10px; padding: 10px;
 }

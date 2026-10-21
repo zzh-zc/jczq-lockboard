@@ -155,7 +155,7 @@
   }
 
   function attachAll() {
-    ["jczq", "beidan", "r14"].forEach((key) => {
+      ["jczq", "beidan", "r14", "r9"].forEach((key) => {
       ((global.CC_DATA && global.CC_DATA[key] && global.CC_DATA[key].matches) || []).forEach((m) => {
         m.engine = read(m);
       });
