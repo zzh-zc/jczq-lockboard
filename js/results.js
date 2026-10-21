@@ -80,9 +80,10 @@
   function attachList(list) {
     (list || []).forEach((m) => {
       const hit = lookup(m);
-      if (!hit) return;
-      m.score = m.score || hit.score;
-      m.result = m.result || hit.result;
+      if (hit) {
+        m.score = m.score || hit.score;
+        m.result = m.result || hit.result;
+      }
       if (m.pick && m.result && m.hit == null) m.hit = hitOf(m.pick, m.result);
     });
   }

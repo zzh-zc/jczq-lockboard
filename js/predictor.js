@@ -297,6 +297,11 @@
     locked.slot = raw.slot;
     locked.books500 = raw.books500 || null;
     locked.safe = false;
+    locked.liveScore = raw.liveScore || "";
+    locked.liveState = raw.liveState || "";
+    locked.liveMinute = raw.liveMinute || "";
+    if (raw.score) locked.score = raw.score;
+    if (raw.result) locked.result = raw.result;
   }
 
   function ticksOf(o, ah, books) {
@@ -536,23 +541,38 @@
     ];
   }
 
+  function todayIso() {
+    if (global.CC_ODDS && CC_ODDS.todayIso) return CC_ODDS.todayIso();
+    const d = new Date();
+    const p = (x) => String(x).padStart(2, "0");
+    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+  }
+
   function apply(pack) {
     const locked = pack.matches.map(lockOne);
-    capDual(locked);
-    realign(locked);
     const old = (global.CC_DATA.jczq && global.CC_DATA.jczq.matches) || [];
     locked.forEach((m) => overlayNotes(m, old));
-    const settled = old.filter((m) => m.result);
-    global.CC_DATA.jczq.matches = settled.concat(locked);
-    global.CC_DATA.jczq.title = "竞彩足球 · 即时算法 " + locked.length + " 场";
+    const keyOf = (m) => m.slot || [m.date, m.home, m.away].join("|");
+    const seen = new Set(locked.map(keyOf));
+    const today = todayIso();
+    const keep = old.filter((m) => {
+      if (seen.has(keyOf(m))) return false;
+      if (m.result) return true;
+      return m.source === "live" && (!m.date || m.date >= today);
+    });
+    const all = keep.concat(locked);
+    capDual(all);
+    realign(all);
+    global.CC_DATA.jczq.matches = all;
+    global.CC_DATA.jczq.title = "竞彩足球 · 即时算法 " + all.length + " 场";
     global.CC_DATA.jczq.version = (pack.booksOk ? "竞彩+500百家 " : "竞彩官方 SP ") + (pack.updatedAt || "");
     global.CC_DATA.jczq.date = locked[0] ? locked[0].date : global.CC_DATA.jczq.date;
-    global.CC_DATA.jczq.buy = buyLines(locked);
-    global.CC_DATA.jczq.env = locked.some((m) => m.env === "掺局区") ? "含掺局区，少买" : "高可信为主";
-    const mix = locked.filter((m) => m.env === "掺局区").length;
-    global.CC_DATA.jczq.dualLimit = mix > locked.length * 0.5 ? 1 : 0.5;
+    global.CC_DATA.jczq.buy = buyLines(all);
+    global.CC_DATA.jczq.env = all.some((m) => m.env === "掺局区") ? "含掺局区，少买" : "高可信为主";
+    const mix = all.filter((m) => m.env === "掺局区").length;
+    global.CC_DATA.jczq.dualLimit = mix > all.length * 0.5 ? 1 : 0.5;
     global.CC_DATA._liveAt = pack.updatedAt;
-    return locked;
+    return all;
   }
 
   function applyBeidan(pack, jcList) {

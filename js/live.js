@@ -63,25 +63,171 @@
     return { matches: cache.matches.slice(), updatedAt: cache.updatedAt || "", n: n, fromCache: true };
   }
 
-  async function pull() {
-    try {
-      const json = await loadJson(JC_SRC);
-      if (!json.success || !json.value) throw new Error("empty");
-      const matches = [];
-      (json.value.matchInfoList || []).forEach((day) => {
-        (day.subMatchList || []).forEach((row) => {
-          if (!row.had || !n(row.had.h) || !n(row.had.d) || !n(row.had.a)) return;
-          if (row.matchStatus && /Cancel|Paused/i.test(row.matchStatus)) return;
-          matches.push(mapJc(row));
-        });
+  function matchKey(m) {
+    return m.slot || [m.date, m.home, m.away].join("|");
+  }
+
+  function hasHad(m) {
+    const had = (m && m.had) || {};
+    return !!(n(had.h) && n(had.d) && n(had.a));
+  }
+
+  function pickPool(cur, prev) {
+    if (cur && Object.keys(cur).length > 3) return cur;
+    return prev || cur || {};
+  }
+
+  function mergeJc(live, cached) {
+    const map = new Map();
+    (cached || []).forEach((m) => map.set(matchKey(m), Object.assign({}, m)));
+    (live || []).forEach((m) => {
+      const key = matchKey(m);
+      const prev = map.get(key);
+      if (!prev) {
+        map.set(key, m);
+        return;
+      }
+      map.set(key, Object.assign({}, prev, m, {
+        had: hasHad(m) ? m.had : prev.had,
+        hhad: m.hhad && (m.hhad.h || m.hhad.goalLine) ? m.hhad : prev.hhad,
+        ttg: pickPool(m.ttg, prev.ttg),
+        hafu: pickPool(m.hafu, prev.hafu),
+        crs: pickPool(m.crs, prev.crs),
+      }));
+    });
+    return [...map.values()]
+      .filter((m) => hasHad(m))
+      .sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.code).localeCompare(String(b.code)));
+  }
+
+  async function pullLiveRows() {
+    const json = await loadJson(JC_SRC);
+    if (!json.success || !json.value) throw new Error("empty");
+    const matches = [];
+    (json.value.matchInfoList || []).forEach((day) => {
+      (day.subMatchList || []).forEach((row) => {
+        if (row.matchStatus && /Cancel|Paused/i.test(row.matchStatus)) return;
+        if (!row.had || !n(row.had.h) || !n(row.had.d) || !n(row.had.a)) return;
+        matches.push(mapJc(row));
       });
-      if (!matches.length) throw new Error("no matches");
-      return { matches, updatedAt: json.value.lastUpdateTime || "", n: n };
+    });
+    return { matches, updatedAt: json.value.lastUpdateTime || "" };
+  }
+
+  async function pull() {
+    const cache = fromJcCache();
+    let live = [];
+    let updatedAt = "";
+    try {
+      const pack = await pullLiveRows();
+      live = pack.matches;
+      updatedAt = pack.updatedAt;
     } catch (err) {
-      const cache = fromJcCache();
-      if (cache) return cache;
-      throw err;
+      if (!cache) throw err;
+      return cache;
     }
+    const matches = mergeJc(live, cache && cache.matches);
+    if (!matches.length) {
+      if (cache) return cache;
+      throw new Error("no matches");
+    }
+    return { matches, updatedAt: updatedAt || (cache && cache.updatedAt) || "", n: n };
+  }
+
+  function ymdOf(date) {
+    return String(date || "").replace(/-/g, "");
+  }
+
+  function cleanScore(raw) {
+    const m = String(raw || "").replace(/\s/g, "").match(/(\d+)[-:](\d+)/);
+    return m ? m[1] + "-" + m[2] : "";
+  }
+
+  function hadOfScore(score) {
+    const m = String(score || "").match(/^(\d+)-(\d+)$/);
+    if (!m) return "";
+    const h = Number(m[1]);
+    const a = Number(m[2]);
+    if (h > a) return "主";
+    if (h < a) return "客";
+    return "平";
+  }
+
+  function liveStateOf(st) {
+    if (!st) return "ns";
+    if (st.finished) return "ft";
+    if (st.started || st.ongoing) return "live";
+    return "ns";
+  }
+
+  function newsOf(m) {
+    const bag = (global.CC_NEWS_CACHE && global.CC_NEWS_CACHE.bySlot) || {};
+    if (m.slot && bag[m.slot]) return bag[m.slot];
+    return Object.values(bag).find((x) => x.date === m.date && x.home === m.home && x.away === m.away) || {};
+  }
+
+  async function fetchFotmobDay(ymd) {
+    const url = "https://www.fotmob.com/api/data/matches?date=" + ymd;
+    try {
+      return await loadJson(url);
+    } catch (e1) {
+      try {
+        return await loadJson("https://cors.eu.org/" + url);
+      } catch (e2) {
+        return loadJson("https://api.allorigins.win/raw?url=" + encodeURIComponent(url));
+      }
+    }
+  }
+
+  function indexFotmob(json, byId, byHome) {
+    (json.leagues || []).forEach((lg) => {
+      (lg.matches || []).forEach((row) => {
+        const home = row.home || {};
+        const away = row.away || {};
+        const st = row.status || {};
+        const score = cleanScore(st.scoreStr) || (home.score != null && away.score != null ? home.score + "-" + away.score : "");
+        const item = {
+          id: row.id,
+          score: score,
+          liveState: liveStateOf(st),
+          liveMinute: String((st.liveTime && st.liveTime.short) || "").replace(/[\u200e\u200f]/g, ""),
+        };
+        if (row.id != null) byId[String(row.id)] = item;
+        if (home.id != null) byHome[String(home.id)] = item;
+      });
+    });
+  }
+
+  function stampLive(m, hit) {
+    if (!hit) return;
+    m.liveScore = hit.score || "";
+    m.liveState = hit.liveState || "";
+    m.liveMinute = hit.liveMinute || "";
+    if (hit.liveState === "ft" && hit.score) {
+      m.score = hit.score;
+      m.result = m.result || hadOfScore(hit.score);
+    }
+  }
+
+  async function pullScores(matches) {
+    const list = matches || [];
+    const days = [...new Set(list.map((m) => ymdOf(m.date)).filter((d) => d.length === 8))];
+    if (!days.length) return list;
+    const byId = {};
+    const byHome = {};
+    for (let i = 0; i < days.length; i += 1) {
+      try {
+        indexFotmob(await fetchFotmobDay(days[i]), byId, byHome);
+      } catch (err) {
+        // 比分源偶发拦，下一轮再刷。
+      }
+    }
+    list.forEach((m) => {
+      const news = newsOf(m);
+      const hit = (news.matchId && byId[String(news.matchId)]) || (news.homeId && byHome[String(news.homeId)]);
+      stampLive(m, hit);
+    });
+    return list;
   }
 
   function mapSfcRow(row) {
@@ -199,5 +345,5 @@
     return { matches, live: false, updatedAt: cache.updatedAt || "" };
   }
 
-  global.CC_LIVE = { pull, pullSfc, pullBjdc, n, shortLeague };
+  global.CC_LIVE = { pull, pullSfc, pullBjdc, pullScores, n, shortLeague, matchKey, hadOfScore };
 })(window);

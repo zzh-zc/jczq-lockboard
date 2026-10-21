@@ -58,6 +58,37 @@
     return `<span class="chip light-${l}">${map[l]}</span>`;
   }
 
+  function kickedOff(m) {
+    if (m.liveState === "live" || m.liveState === "ft") return true;
+    const ts = new Date(`${m.date || ""}T${(m.kickoff || "00:00")}:00`).getTime();
+    return Number.isFinite(ts) && Date.now() >= ts - 5 * 60 * 1000;
+  }
+
+  function scoreMark(m) {
+    if (m.liveState === "live" && (m.liveScore || m.liveMinute)) {
+      return `　<span class="chip live">${esc(m.liveScore || "0-0")} ${esc(m.liveMinute || "进行中")}</span>`;
+    }
+    const sc = m.score || (m.liveState === "ft" ? m.liveScore : "");
+    if (!sc) return "";
+    const cls = m.hit ? "home" : m.hit === false ? "cold" : "draw";
+    return `　<span class="chip ${cls}">${m.result ? "赛果" : "完场"} ${esc(sc)} ${esc(m.result || "")}</span>`;
+  }
+
+  function scoreText(m) {
+    if (m.liveState === "live" && (m.liveScore || m.liveMinute)) {
+      return " · " + (m.liveScore || "0-0") + " " + (m.liveMinute || "进行中");
+    }
+    if (m.score) return " · 赛果 " + m.score + " " + (m.result || "");
+    if (m.liveState === "ft" && m.liveScore) return " · 完场 " + m.liveScore;
+    return "";
+  }
+
+  function kickLabel(m) {
+    if (m.liveState === "live") return m.liveMinute || "进行中";
+    if (m.liveState === "ft" || m.score) return "完场";
+    return m.kickoff || "";
+  }
+
   function chips(pick) {
     return showPick(pick).split("/").filter(Boolean).map((p) =>
       `<span class="chip ${pickClass(p)}">${p}</span>`
@@ -145,8 +176,8 @@
         <div class="match-list">
           ${matches.length ? matches.map((m) => `
             <button type="button" class="match-card ${m.id === state.selected ? "on" : ""}" data-id="${m.id}">
-              <div class="row"><span>${m.league} · ${m.code}</span><span>${m.kickoff || ""}</span></div>
-              <div class="teams">${m.home} vs ${m.away}${m.score ? `　<span class="chip ${m.hit ? "home" : "cold"}">赛果 ${esc(m.score)} ${esc(m.result || "")}</span>` : ""}</div>
+              <div class="row"><span>${m.league} · ${m.code}</span><span>${kickLabel(m)}</span></div>
+              <div class="teams">${m.home} vs ${m.away}${scoreMark(m)}</div>
               <div class="chips">
                 ${lightChip(m)}
                 ${actionChip(m)}
@@ -176,7 +207,7 @@
         ${dayMatches.map((m) => `
           <div class="pool-item" data-id="${m.id}">
             <div class="row"><b>${m.code}</b> ${chips(m.pick)}</div>
-            <div class="kicker">${m.home} vs ${m.away}${m.score ? " · 赛果 " + m.score + " " + (m.result || "") : ""}${m.paperOppose ? " · 热门别跟" : ""}</div>
+            <div class="kicker">${m.home} vs ${m.away}${scoreText(m)}${m.paperOppose ? " · 热门别跟" : ""}</div>
             <div class="script-line fx-mini">${(m.hadPicks || []).join(" ")}　${(m.ftScores || []).join("/")}</div>
           </div>
         `).join("") || "<p class='kicker'>无</p>"}
@@ -421,7 +452,7 @@
       <div class="detail-head">
         <div>
           <h3>${m.home} vs ${m.away}</h3>
-          <p class="kicker">${m.league} · ${m.date} ${m.kickoff || ""}${m.score ? " · 完场 " + m.score : ""}</p>
+          <p class="kicker">${m.league} · ${m.date} ${m.kickoff || ""}${scoreText(m)}</p>
         </div>
         <div class="chips">${lightChip(m)}${chips(m.pick)}${m.result ? `<span class="chip ${m.hit ? "home" : "cold"}">${m.hit ? "中" : "挂"} ${m.result}</span>` : ""}</div>
       </div>
@@ -466,7 +497,7 @@
       <div class="detail-head">
         <div>
           <h3>${m.home} vs ${m.away}</h3>
-          <p class="kicker">${m.league} · ${m.date || ""} ${m.kickoff || ""}${m.handicap ? " · 让球 " + m.handicap : ""}</p>
+          <p class="kicker">${m.league} · ${m.date || ""} ${m.kickoff || ""}${m.handicap ? " · 让球 " + m.handicap : ""}${scoreText(m)}</p>
         </div>
       </div>
       ${renderObserve(m)}
@@ -531,7 +562,7 @@
     return `
       <article class="intel-match ${open ? "is-open" : "is-locked"}" data-intel-card="${esc(id)}">
         <div class="intel-cover">
-          <div class="intel-cover-h">${esc(m.league || "")} · ${esc(m.code || "")} · ${esc(m.kickoff || "")}</div>
+          <div class="intel-cover-h">${esc(m.league || "")} · ${esc(m.code || "")} · ${esc(kickLabel(m))}${m.liveScore || m.score ? " · " + esc(m.liveScore || m.score) : ""}</div>
           <div class="intel-vs">
             <div class="intel-side">${crest(m.home, pack.homeLogo, false)}<b>${esc(m.home)}</b></div>
             <i>VS</i>
@@ -848,7 +879,9 @@
   else phoneMq.addListener(render);
 
   const HOUR_MS = 60 * 60 * 1000;
+  const SCORE_MS = 45 * 1000;
   const clock = { nextAt: Date.now() + HOUR_MS, busy: false };
+  const scoreClock = { nextAt: Date.now() + 8000, busy: false };
 
   function pad2(n) {
     return String(n).padStart(2, "0");
@@ -874,6 +907,29 @@
     const count = $("refreshCount");
     if (count) count.textContent = clockLabel(clock.nextAt - Date.now());
     if (!clock.busy && Date.now() >= clock.nextAt) refreshData();
+    if (!scoreClock.busy && !clock.busy && Date.now() >= scoreClock.nextAt) refreshScores();
+  }
+
+  async function refreshScores() {
+    if (scoreClock.busy || clock.busy) return;
+    if (!window.CC_LIVE || !CC_LIVE.pullScores) return;
+    const list = (CC_DATA.jczq.matches || []).filter((m) => m.source === "live");
+    if (!list.length) {
+      scoreClock.nextAt = Date.now() + SCORE_MS;
+      return;
+    }
+    const hot = list.some((m) => m.liveState === "live" || kickedOff(m));
+    scoreClock.busy = true;
+    try {
+      await CC_LIVE.pullScores(list);
+      if (window.CC_RESULT && CC_RESULT.attachList) CC_RESULT.attachList(list);
+      render();
+    } catch (err) {
+      // 比分刷新失败不影响锁号。
+    } finally {
+      scoreClock.busy = false;
+      scoreClock.nextAt = Date.now() + (hot ? SCORE_MS : SCORE_MS * 4);
+    }
   }
 
   async function refreshData() {
@@ -889,6 +945,7 @@
     try {
       if (window.CC_LIVE && window.CC_PRED) {
         let pack = await CC_LIVE.pull();
+        if (window.CC_LIVE.pullScores) await CC_LIVE.pullScores(pack.matches);
         if (window.CC_BOOKS) pack = await CC_BOOKS.enrich(pack);
         const locked = CC_PRED.apply(pack);
         let bd = { matches: [], live: false };
@@ -961,6 +1018,9 @@
       }
       if (window.CC_SFC_CACHE) CC_PRED.applySfc(CC_SFC_CACHE, locked);
       CC_PRED.finish();
+      if (window.CC_LIVE && CC_LIVE.pullScores) {
+        CC_LIVE.pullScores(CC_DATA.jczq.matches).then(() => { render(); }).catch(() => {});
+      }
     } else if (window.CC_PRED && CC_PRED.explainAll) {
       CC_PRED.explainAll();
     }

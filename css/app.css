@@ -161,6 +161,12 @@ h1, h2, h3 { margin: 0; font-weight: 650; }
 .chip.light-green { color: var(--green); border-color: #245c44; }
 .chip.light-yellow { color: var(--draw); border-color: #6d5420; }
 .chip.light-red { color: var(--red); border-color: #7a2c3b; }
+.chip.live {
+  color: #ff8a65;
+  border-color: #8a3a28;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
 .observe {
   border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin: 10px 0 14px;
   background: #0b1018;
