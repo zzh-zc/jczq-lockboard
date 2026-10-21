@@ -120,6 +120,9 @@
     } else if (eu === "even" && ah === "even") {
       gate = "路过";
       reasons.push("两边差不多，信号不明，先路过。");
+    } else if (m.env === "掺局区" && !((eu === "home" && ah === "home") || (eu === "away" && ah === "away"))) {
+      gate = "路过";
+      reasons.push("掺局区没有欧亚同向，先路过。");
     }
 
     if (keys.length === 1 && mainOdds < 1.5) {

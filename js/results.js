@@ -80,7 +80,10 @@
   function reviewOf(m) {
     if (!m.pick || !m.result) return;
     m.hit = hitOf(m.pick, m.result);
-    if (m.review) return;
+    if (m.review) {
+      m.tag = m.hit ? "复盘中" : "复盘挂";
+      return;
+    }
     const scores = (m.ftScores || []).join("/");
     const scoreHit = !!(m.score && scores && scores.split("/").indexOf(m.score) >= 0);
     m.review = m.hit ? "不败中" : "不败挂";

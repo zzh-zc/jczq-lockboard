@@ -125,8 +125,8 @@
       if (state.risk === "清楚" && (!m.market || m.market.light !== "green")) return false;
       if (state.risk === "胶着" && (!m.market || m.market.light !== "yellow")) return false;
       if (state.risk === "别碰" && (!m.market || m.market.light !== "red") && (!m.engine || m.engine.gate !== "别碰")) return false;
-      if (state.risk === "出手" && (!m.engine || m.engine.gate !== "可以看")) return false;
-      if (state.risk === "不出手" && (!m.engine || m.engine.gate === "可以看")) return false;
+      if (state.risk === "出手" && !playing(m)) return false;
+      if (state.risk === "不出手" && playing(m)) return false;
       return true;
     });
   }
@@ -181,12 +181,13 @@
               <div class="chips">
                 ${lightChip(m)}
                 ${actionChip(m)}
+                ${watchChip(m)}
                 ${chips(m.pick)}
                 ${envChip(m)}
                 ${injChip(m)}
                 ${newsChip(m)}
               </div>
-              <div class="script-line fx-mini">
+              <div class="script-line fx-mini ${watching(m) ? "dim" : ""}">
                 ${(m.hadPicks || showPick(m.pick).split("/").filter(Boolean)).join(" ")}
                　${(m.ftScores || []).join(" / ") || "—"}
                　${(m.ttgPicks || m.ftOu || []).join(" / ") || ""}
@@ -256,10 +257,23 @@
     if (svg && current && current.ticks) CC_ODDS.drawChart(svg, current.ticks, state.idxTab);
   }
 
+  function watching(m) {
+    return m.action === "别碰" || m.action === "路过" || m.lock === false;
+  }
+
+  function playing(m) {
+    return m.action === "买一边" || m.action === "买两边" || m.action === "少买";
+  }
+
   function actionChip(m) {
-    const a = m.action || (m.dual ? "买两边" : "买一边");
+    const a = m.action || (watching(m) ? "路过" : m.dual ? "买两边" : "买一边");
     const cls = a === "买一边" ? "home" : a === "别碰" || a === "路过" ? "cold" : "draw";
     return `<span class="chip ${cls}">${a}</span>`;
+  }
+
+  function watchChip(m) {
+    if (!watching(m)) return "";
+    return '<span class="chip cold">观察</span>';
   }
 
   function envChip(m) {

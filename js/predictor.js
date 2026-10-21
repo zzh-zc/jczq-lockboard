@@ -125,15 +125,12 @@
   function pickCrs(rows, side, ctx) {
     const list = (rows || []).slice();
     if (!list.length) return [];
-    list.sort((a, b) => preferScore(a, side, ctx) - preferScore(b, side, ctx) || a.odds - b.odds);
-    const out = [list[0].label];
-    const firstTot = totOf(list[0]);
-    list.slice(1).forEach((r) => {
-      if (out.length >= 2) return;
-      if (totOf(r) !== firstTot || out.length === 1) out.push(r.label);
-    });
-    if (out.length < 2 && list[1]) out.push(list[1].label);
-    return out;
+    list.sort((a, b) => a.odds - b.odds || preferScore(a, side, ctx) - preferScore(b, side, ctx));
+    const first = list[0];
+    const rest = list.filter((r) => totOf(r) !== totOf(first));
+    rest.sort((a, b) => Math.abs(totOf(a) - ctx.peak) - Math.abs(totOf(b) - ctx.peak) || a.odds - b.odds);
+    const second = rest[0] || list[1] || first;
+    return [first.label, second.label];
   }
 
   function crsAligned(crs, sides, ctx) {
@@ -265,10 +262,11 @@
     const books = raw.books500 || null;
     const shake = (books && books.quake) || quake(raw.had);
     const veto = !!(books && books.veto);
-    const locked = decide(eu, fight || veto, env, o);
+    const locked = decide(eu, fight || veto, env, o, ah);
     stamp(locked, raw, sp, env);
     fillMarkets(locked, raw, o, line);
-    locked.ticks = ticksOf(o, ah, books);
+    locked.ticks = ticksOf(o, ah, books, line);
+    locked.action = actionOf(locked);
     locked.summary = summarize(locked, eu, ah, fight, veto, sp, shake, books);
     locked.market = marketOf(locked, eu, ah, fight, veto, shake, books);
     locked.factors = [
@@ -304,11 +302,18 @@
     if (raw.result) locked.result = raw.result;
   }
 
-  function ticksOf(o, ah, books) {
+  function ahQuotes(line, ah) {
+    if ((line != null && line < -0.1) || ah === "home") return { home: 0.80, away: 1.00 };
+    if ((line != null && line > 0.1) || ah === "away") return { home: 1.00, away: 0.80 };
+    return { home: 1.00, away: 1.00 };
+  }
+
+  function ticksOf(o, ah, books, line) {
     const open = books && books.avgOpen ? books.avgOpen : o;
     const now = books && books.avgNow ? books.avgNow : o;
-    const ahOpen = { home: open.kh || 1, away: open.ka || 1 };
-    const ahNow = { home: now.kh || 1, away: now.ka || 1 };
+    const fake = ahQuotes(line, ah);
+    const ahOpen = open.kh ? { home: open.kh, away: open.ka } : fake;
+    const ahNow = now.kh ? { home: now.kh, away: now.ka } : fake;
     return [
       { t: "初盘", h: open.h, d: open.d, a: open.a, ah: ahOpen, ou: { over: open.h, under: open.a }, vol: 8 },
       { t: "即时", h: now.h, d: now.d, a: now.a, ah: ahNow, ou: { over: now.h, under: now.a }, vol: 12 },
@@ -321,27 +326,34 @@
     return { pick: "主/平", dual: true };
   }
 
-  function decide(eu, red, env, o) {
+  function together(eu, ah) {
+    return (eu === "home" && ah === "home") || (eu === "away" && ah === "away");
+  }
+
+  function decide(eu, red, env, o, ah) {
+    const ahSide = ah || "even";
+    const aligned = together(eu, ahSide);
     let out;
     if (env === "掺局区" || eu === "even") {
       out = {
         pick: eu === "even" ? "主/客" : eu === "away" ? "平/客" : "主/平",
         dual: true, paperOppose: false, tag: eu === "even" ? "对开" : "胶着", light: "yellow",
+        lock: !red && env === "掺局区" ? aligned : !red && eu !== "even",
       };
     } else if (eu === "draw") {
-      out = { pick: "主/平", dual: true, paperOppose: false, tag: "偏平", light: "yellow" };
+      out = { pick: "主/平", dual: true, paperOppose: false, tag: "偏平", light: "yellow", lock: !red };
     } else {
       const side = eu === "away" ? o.a : o.h;
+      const can = !red && (aligned || ahSide === "even");
       out = side < 1.8
-        ? { pick: eu === "away" ? "平/客" : "主/平", dual: true, paperOppose: false, tag: "低赔不单", light: "yellow" }
-        : { pick: eu === "away" ? "客" : "主", dual: false, paperOppose: false, tag: "跟一边", light: "green" };
+        ? { pick: eu === "away" ? "平/客" : "主/平", dual: true, paperOppose: false, tag: "低赔不单", light: "yellow", lock: can }
+        : { pick: eu === "away" ? "客" : "主", dual: false, paperOppose: false, tag: "跟一边", light: "green", lock: can };
     }
     if (!red) return out;
-    if (!out.dual) {
-      const cover = undefeated(eu);
-      out.pick = cover.pick;
-      out.dual = true;
-    }
+    const cover = undefeated(eu);
+    out.pick = cover.pick;
+    out.dual = true;
+    out.lock = false;
     out.light = "red";
     out.paperOppose = true;
     out.tag = "别碰热门";
@@ -366,7 +378,7 @@
       if (veto) why.push("平博和平均盘拧着");
       return {
         light: "red", drift: drift, veto: why.join(" · ") || "公司吵架", quake: shake,
-        note: "市场标红：热门单边不可信。本场锁号仍给 " + String(m.pick || "").replace(/主/g, "胜").replace(/客/g, "负") + "。",
+        note: "市场标红：热门单边不可信。倾向写下看出手，动作是别碰。",
       };
     }
     const pin = books && global.CC_BOOKS ? CC_BOOKS.label(books.pinSide) : "";
@@ -425,14 +437,21 @@
     }
   }
 
+  function playable(m) {
+    return m && (m.action === "买一边" || m.action === "买两边" || m.action === "少买");
+  }
+
   function buyLines(list, extra) {
-    const dual = list.filter((m) => m.dual).length;
-    const stop = list.filter((m) => m.light === "red").map((m) => m.code + m.pick);
-    const green = list.filter((m) => m.light === "green").map((m) => m.code + m.pick);
+    const play = (list || []).filter(playable);
+    const skip = (list || []).filter((m) => !playable(m));
+    const dual = play.filter((m) => m.dual).length;
+    const green = play.filter((m) => m.light === "green").map((m) => m.code + m.pick);
+    const mix = play.filter((m) => m.env === "掺局区").map((m) => m.code + m.pick);
     return [
-      extra || `算法 ${list.length} 场，双选 ${dual}/${list.length}（上限 50%）`,
+      extra || `列表 ${list.length} 场，出手 ${play.length}，观察 ${skip.length}。出手里双选 ${dual}/${play.length || 1}`,
       green.length ? "跟一边：" + green.join("、") : "这一轮没有清楚的单边",
-      stop.length ? "红灯仍锁：" + stop.join("、") : "没有红灯场",
+      mix.length ? "掺局区只少买：" + mix.join("、") : "掺局区没有同向场",
+      skip.length ? "红灯/对开/欧亚没同向：只观察，不进怎么买" : "没有观察场",
       "灯是状态，动作才是出不出手。倾向和动作必须一致。",
     ];
   }
@@ -466,16 +485,18 @@
     const o = { h: n(hh.h), d: n(hh.d), a: n(hh.a) };
     if (!o.h || !o.d || !o.a) return null;
     const line = n(hh.goalLineValue || hh.goalLine) || 0;
+    const had = { h: n((raw.had || {}).h), d: n((raw.had || {}).d), a: n((raw.had || {}).a) };
+    const euHad = had.h && had.d && had.a ? hottest(had) : hottest(o);
     const eu = hottest(o);
     const ah = ahFav(line);
-    const fight = (eu === "home" && ah === "away") || (eu === "away" && ah === "home");
+    const fight = (euHad === "home" && ah === "away") || (euHad === "away" && ah === "home");
     const env = MIX.test(raw.league) ? "掺局区" : "高可信";
-    const locked = decide(eu, fight, env, o);
+    const locked = decide(eu, fight, env, o, ah);
     locked.pick = asHandicap(locked.pick);
     stamp(locked, raw, fmtSp(o), env);
-    const had = { h: n((raw.had || {}).h), d: n((raw.had || {}).d), a: n((raw.had || {}).a) };
     fillMarkets(locked, marketSrc(raw, twinOf(raw, jcList)), had.h ? had : o, line);
-    locked.ticks = ticksOf(had.h ? had : o, ah, null);
+    locked.ticks = ticksOf(had.h ? had : o, ah, null, line);
+    locked.action = actionOf(locked);
     locked.summary = summarize(locked, eu, ah, fight, false, locked.sp, "北单让球盘", null);
     locked.market = marketOf(locked, eu, ah, fight, false, "北单让球盘", null);
     locked.factors = [
@@ -502,7 +523,7 @@
     if (!o.h || !o.d || !o.a) o = { h: 2.40, d: 3.30, a: 2.50 };
     const eu = hottest(o);
     const env = MIX.test(raw.league) ? "掺局区" : "高可信";
-    const locked = decide(eu, false, env, o);
+    const locked = decide(eu, false, env, o, "even");
     if (!locked.dual) {
       const cover = undefeated(eu);
       locked.pick = cover.pick;
@@ -510,10 +531,12 @@
       locked.tag = "任14带平";
       locked.light = "yellow";
     }
+    locked.lock = true;
     stamp(locked, raw, fmtSp(o), env);
+    locked.action = actionOf(locked);
     fillMarkets(locked, marketSrc(raw, twin), o, 0);
     locked.combo = toCombo(locked.pick);
-    locked.ticks = ticksOf(o, "even", null);
+    locked.ticks = ticksOf(o, "even", null, 0);
     locked.summary = summarize(locked, eu, "even", false, false, locked.sp, "胜负彩", null);
     locked.market = marketOf(locked, eu, "even", false, false, "胜负彩", null);
     locked.factors = [
@@ -614,8 +637,9 @@
   function actionOf(m) {
     const g = m.engine && m.engine.gate;
     if (m.light === "red" || g === "别碰") return "别碰";
-    if (g === "不出手" || g === "路过") return "路过";
+    if (m.lock === false) return "路过";
     if (m.env === "掺局区" || m.tag === "名额满才单") return "少买";
+    if (g === "不出手" || g === "路过") return "路过";
     if (m.dual) return "买两边";
     if (m.light === "green") return "买一边";
     return "路过";
@@ -701,21 +725,29 @@
     });
   }
 
+  function refreshBuy() {
+    const jc = (global.CC_DATA || {}).jczq;
+    if (jc && jc.matches) jc.buy = buyLines(jc.matches);
+    const bd = (global.CC_DATA || {}).beidan;
+    if (bd && bd.matches) bd.buy = buyLines(bd.matches, "北单出手才进怎么买，列表仍全量");
+  }
+
   function finish() {
     if (global.CC_EXTRAS) global.CC_EXTRAS.attach();
     else if (global.CC_ENGINE) global.CC_ENGINE.attachAll();
     if (global.CC_FORM) CC_FORM.attachAll();
     if (global.CC_NEWS) CC_NEWS.attachAll();
     if (global.CC_ENGINE) CC_ENGINE.attachAll();
+    ["jczq", "beidan", "r14", "r9"].forEach((key) => {
+      realign(((global.CC_DATA || {})[key] || {}).matches);
+    });
+    explainAll();
+    refreshBuy();
     if (global.CC_RESULT && CC_RESULT.attachList) {
       ["jczq", "beidan", "r14", "r9"].forEach((key) => {
         CC_RESULT.attachList(((global.CC_DATA || {})[key] || {}).matches);
       });
     }
-    ["jczq", "beidan", "r14", "r9"].forEach((key) => {
-      realign(((global.CC_DATA || {})[key] || {}).matches);
-    });
-    explainAll();
   }
 
   function scoresOf(m) {

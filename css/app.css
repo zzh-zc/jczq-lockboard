@@ -167,6 +167,7 @@ h1, h2, h3 { margin: 0; font-weight: 650; }
   font-variant-numeric: tabular-nums;
   font-weight: 700;
 }
+.script-line.dim { opacity: 0.45; }
 .observe {
   border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin: 10px 0 14px;
   background: #0b1018;
