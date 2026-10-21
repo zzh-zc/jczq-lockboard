@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=15" />
+  <link rel="stylesheet" href="css/app.css?v=17" />
 </head>
 <body>
   <div class="chrome">
@@ -27,7 +27,7 @@
       <div class="refresh-clock" id="refreshClock">
         <div class="stat">
           <b id="refreshCount">60:00</b>
-          <span id="refreshHint">每小时按竞彩即时盘重算</span>
+          <span id="refreshHint">每小时按竞彩即时盘 + 500百家重算</span>
         </div>
         <button type="button" class="ghost" id="btnRefresh">立即刷新</button>
       </div>
@@ -105,17 +105,19 @@
     </div>
   </div>
 
-  <script src="js/data.js?v=15"></script>
-  <script src="js/odds.js?v=15"></script>
-  <script src="js/extras.js?v=15"></script>
-  <script src="js/engine.js?v=15"></script>
-  <script src="js/live.js?v=15"></script>
-  <script src="js/predictor.js?v=15"></script>
-  <script src="js/app.js?v=15"></script>
-  <p class="site-foot">版 10-21e · 每小时用竞彩官方即时 SP 重跑读盘算法。不是对话手写稿。仅作盘口研究。</p>
+  <script src="js/data.js?v=17"></script>
+  <script src="js/odds.js?v=17"></script>
+  <script src="js/extras.js?v=17"></script>
+  <script src="js/engine.js?v=17"></script>
+  <script src="js/live.js?v=17"></script>
+  <script src="js/ouzhi-cache.js?v=17"></script>
+  <script src="js/books.js?v=17"></script>
+  <script src="js/predictor.js?v=17"></script>
+  <script src="js/app.js?v=17"></script>
+  <p class="site-foot">版 10-21f · 红灯仍给出锁号。尽量读 500 百家分歧和初盘走势。仅作盘口研究。</p>
   <script>
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=15");
+      navigator.serviceWorker.register("./sw.js?v=17");
     }
   </script>
 </body>

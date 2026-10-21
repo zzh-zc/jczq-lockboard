@@ -16,7 +16,7 @@
 - [jc-daily-report](https://github.com/chinjiaqing/jc-daily-report) 三通道交叉验证、低赔不出手、信号不明不进
 - [football-engine](https://github.com/wlrwx/football-engine) 市场去水为基准、压缩比、热门区闸门
 
-赔率走势图是示意（开售→即时），不是球探实时百家。概率按竞彩即时 SP 去水。
+赔率走势优先用 500 百家平均初盘→即时；拉不到时退回竞彩官方 SP。红灯只警告「热门单边别碰」，锁号仍会给不败。
 
 ## 本地打开
 
@@ -28,7 +28,7 @@ python -m http.server 8765 --bind 127.0.0.1
 
 Windows 上必须加 `--bind 127.0.0.1`，否则会只挂 IPv6。
 
-打开后会立刻向竞彩官方计算器拉即时 SP，按读盘闸门重算锁号；之后每小时再跑一轮。拉不到盘口时才退回 `js/data.js` 底稿。
+打开后立刻拉竞彩官方即时 SP，并尽量读 500 百家（平博 vs 平均、初盘→即时）。500 没有 CORS 时用推上去的 `js/ouzhi-cache.js`。拉不到竞彩盘口才退回 `js/data.js`。之后每小时再跑一轮。
 
 ## 免责
 

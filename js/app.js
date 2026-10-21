@@ -237,7 +237,7 @@
   function renderObserve(m) {
     const mk = m.market || { light: "yellow", drift: "两边差不多", veto: "看不出一边倒", quake: "暂时没变", note: "先当胶着，不单边。" };
     const cls = mk.light || "yellow";
-    const title = cls === "green" ? "🟢 清楚 · 可以跟一边" : cls === "red" ? "🔴 别碰 · 热门单边不可信" : "🟡 胶着 · 不要只买一边";
+    const title = cls === "green" ? "🟢 清楚 · 可以跟一边" : cls === "red" ? "🔴 市场别碰热门单边 · 仍锁 " + (m.pick || "") : "🟡 胶着 · 不要只买一边";
     return `
       <div class="observe ${cls}">
         <div class="observe-light">${title}</div>
@@ -547,13 +547,17 @@
     if (hint) hint.textContent = "正在拉最新锁号…";
     try {
       if (window.CC_LIVE && window.CC_PRED) {
-        const pack = await CC_LIVE.pull();
+        let pack = await CC_LIVE.pull();
+        if (window.CC_BOOKS) pack = await CC_BOOKS.enrich(pack);
         const locked = CC_PRED.apply(pack);
         const dates = [...new Set(locked.map((m) => m.date))].sort();
         if (dates.length && !locked.some((m) => m.date === state.date)) state.date = dates[0];
         topStats();
         render();
-        if (hint) hint.textContent = `算法 ${new Date().toTimeString().slice(0, 5)} · ${locked.length} 场`;
+        if (hint) {
+          const booksTag = pack.booksLive ? " · 含500百家" : pack.booksOk ? " · 500百家缓存" : "";
+          hint.textContent = `算法 ${new Date().toTimeString().slice(0, 5)} · ${locked.length} 场${booksTag}`;
+        }
       } else {
         throw new Error("no live");
       }

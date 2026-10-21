@@ -27,6 +27,7 @@
       away: m.awayTeamAbbName || m.awayTeamAllName || "",
       date: m.matchDate || m.businessDate || "",
       kickoff: kickOf(m),
+      slot: String(m.matchNumStr || "").replace(/\s/g, ""),
       status: m.matchStatus || "",
       had: m.had || {},
       hhad: m.hhad || {},
