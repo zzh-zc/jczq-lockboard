@@ -77,16 +77,35 @@
     return { aim: aim, peak: peak, margin: margin, line: line || 0, fav: fav };
   }
 
+  function clip(x, lo, hi) {
+    return Math.max(lo, Math.min(hi, Math.round(x)));
+  }
+
+  function oneScore(side, ctx, bump) {
+    const aim = (ctx && ctx.aim) || 2.4;
+    const mgn = (ctx && ctx.margin) || 0;
+    const t = Math.max(0, aim + (bump || 0));
+    if (side === "平") {
+      let g = clip(t / 2, 0, 4);
+      if (bump && g >= 1) g = bump > 0 ? Math.min(4, g + 1) : Math.max(0, g - 1);
+      return g + "-" + g;
+    }
+    const mag = Math.max(1, Math.abs(mgn) + (bump ? 0.35 : 0));
+    let home = (t + (side === "胜" ? mag : -mag)) / 2;
+    let away = t - home;
+    if (side === "胜" && home <= away) home = away + 1;
+    if (side === "负" && away <= home) away = home + 1;
+    return clip(home, 0, 6) + "-" + clip(away, 0, 6);
+  }
+
   function fallbackScores(pick, ctx) {
     const s = sidesOf(pick);
-    const has = (x) => s.indexOf(x) >= 0;
-    const fat = ctx && ctx.aim >= 2.8;
-    if (has("胜") && has("负")) return fat ? ["3-2", "2-3"] : ["2-1", "1-2"];
-    if (has("胜") && has("平")) return fat ? ["2-1", "2-2"] : ["2-1", "1-1"];
-    if (has("负") && has("平")) return fat ? ["1-2", "2-2"] : ["1-2", "1-1"];
-    if (has("负")) return fat ? ["1-2", "1-3"] : ["1-2", "0-2"];
-    if (has("平")) return fat ? ["2-2", "1-1"] : ["1-1", "2-2"];
-    return fat ? ["3-1", "2-1"] : ["2-1", "2-0"];
+    if (s.length === 1) {
+      const a = oneScore(s[0], ctx, 0);
+      const b = oneScore(s[0], ctx, 0.85);
+      return a === b ? [a, oneScore(s[0], ctx, -0.85)] : [a, b];
+    }
+    return [oneScore(s[0], ctx, 0), oneScore(s[1], ctx, 0)];
   }
 
   function preferScore(row, side, ctx) {
@@ -155,13 +174,23 @@
     return pad2(tots, rows.map((r) => r.label));
   }
 
-  function hafuAligned(sides) {
+  function hafuFt(lab) {
+    if (/胜$/.test(lab)) return "胜";
+    if (/平$/.test(lab)) return "平";
+    return "负";
+  }
+
+  function hafuAligned(hafu, sides) {
+    const map = { hh: "胜胜", hd: "胜平", ha: "胜负", dh: "平胜", dd: "平平", da: "平负", ah: "负胜", ad: "负平", aa: "负负" };
+    const rows = Object.keys(map).map((k) => ({ label: map[k], odds: n((hafu || {})[k]) || 99 }))
+      .filter((r) => r.odds < 90 && sides.indexOf(hafuFt(r.label)) >= 0)
+      .sort((a, b) => a.odds - b.odds);
+    if (rows.length) return pad2(rows.map((r) => r.label), rows.map((r) => r.label));
     const has = (x) => sides.indexOf(x) >= 0;
     if (has("胜") && has("平") && !has("负")) return ["平胜", "平平"];
     if (has("负") && has("平") && !has("胜")) return ["平平", "平负"];
     if (has("胜") && has("负") && !has("平")) return ["胜胜", "负负"];
     if (has("负") && !has("胜")) return ["负负", "平负"];
-    if (has("平") && !has("胜")) return ["平平", "平胜"];
     return ["胜胜", "平胜"];
   }
 
@@ -187,7 +216,7 @@
     const ctx = scoreCtx(raw.ttg, line, hadOdds, night);
     locked.ftScores = pad2(crsAligned(raw.crs, sides, ctx), fallbackScores(locked.pick, ctx));
     locked.ttgPicks = ttgAligned(raw.ttg, locked.ftScores);
-    locked.hafuPicks = hafuAligned(sides);
+    locked.hafuPicks = hafuAligned(raw.hafu, sides);
     locked.ftOu = locked.ttgPicks;
     locked.htScores = locked.hafuPicks;
     locked.htOu = locked.hafuPicks;
@@ -665,5 +694,15 @@
     explainAll();
   }
 
-  global.CC_PRED = { lockOne, apply, applyBeidan, applySfc, capDual, finish, explainAll };
+  function scoresOf(m) {
+    const mk = m && m._mk ? m._mk : {};
+    const had = mk.had || {};
+    const line = mk.line != null ? mk.line : n(m && m.handicap) || 0;
+    const hh = Number(String((m && m.kickoff) || "00:00").slice(0, 2));
+    const night = /欧冠|欧罗巴|欧协|英超|西甲|意甲|德甲|法甲/.test(String((m && m.league) || "")) || hh >= 21 || hh <= 5;
+    const ctx = scoreCtx(mk.ttg, line, had, night);
+    return pad2(crsAligned(mk.crs, sidesOf(m && m.pick), ctx), fallbackScores(m && m.pick, ctx));
+  }
+
+  global.CC_PRED = { lockOne, apply, applyBeidan, applySfc, capDual, finish, explainAll, scoresOf };
 })(window);

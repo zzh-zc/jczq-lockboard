@@ -253,19 +253,21 @@
   };
 
   function inferFt(m) {
+    if (global.CC_PRED && CC_PRED.scoresOf) return CC_PRED.scoresOf(m);
+    const paper = parseSp(m.sp);
+    const line = parseFloat(String(m.handicap || "0").replace("+", "")) || 0;
+    const fav = paper ? Math.min(paper.h || 9, paper.d || 9, paper.a || 9) : 9;
+    const aim = fav <= 1.25 ? 3.2 : fav <= 1.6 ? 2.7 : Math.abs(line) >= 1 ? 2.6 : 2.3;
+    const mag = Math.abs(line) >= 1.25 ? 2 : Math.abs(line) >= 0.75 ? 1 : 1;
     const p = m.pick || "";
-    const hcap = m.handicap || "";
-    if (p === "主" || p === "让胜" || p === "3") return pair("2-1", "2-0");
-    if (p === "客" || p === "让负" || p === "0") return pair("1-2", "0-2");
-    if (p === "平" || p === "让平" || p === "1") return pair("1-1", "2-2");
-    if (p === "主/平" || p === "让胜/让平") return pair("2-1", "1-1");
-    if (p === "主/客" || p === "让胜/让负" || p === "30") return pair("2-1", "1-2");
-    if (p === "平/客" || p === "让平/让负") {
-      if (hcap === "-1") return pair("2-1", "2-0");
-      if (hcap === "+1") return pair("1-2", "0-2");
-      return pair("1-2", "1-1");
+    if (/平/.test(p) && !/主|客|让胜|让负/.test(p)) {
+      const g = aim >= 2.8 ? 2 : 1;
+      return pair(g + "-" + g, (g + 1) + "-" + (g + 1));
     }
-    return pair("2-1", "1-1");
+    if (/客|让负/.test(p) && !/主|让胜/.test(p)) return pair((aim >= 2.8 ? "1-2" : "0-1"), (mag >= 2 ? "0-2" : "1-2"));
+    if (/主|让胜/.test(p) && /客|让负/.test(p)) return pair("2-1", "1-2");
+    if (/主|让胜/.test(p) && /平/.test(p)) return pair(aim >= 2.8 ? "2-1" : "1-0", aim >= 2.8 ? "2-2" : "1-1");
+    return pair(aim >= 3 ? "3-1" : "2-1", aim >= 3 ? "2-1" : "2-0");
   }
 
   function sidesFromPick(p) {
@@ -376,24 +378,30 @@
   }
 
   function defaultExtras(m) {
-    const scores = inferFt(m);
+    const live = m.source === "live" || m._mk;
+    const scores = live && m.ftScores && m.ftScores.length ? m.ftScores : inferFt(m);
     const had = sidesFromPick(m.pick);
-    const hafu = hafuFromPick(m.pick);
-    const ttg = ttgFromScores(scores);
-    return {
+    const hafu = (live && m.hafuPicks && m.hafuPicks.length) ? m.hafuPicks : hafuFromPick(m.pick);
+    const ttg = (live && m.ttgPicks && m.ttgPicks.length) ? m.ttgPicks : ttgFromScores(scores);
+    const out = {
       hadPicks: had,
-      hhadPicks: hhadFromSides(had),
+      hhadPicks: (live && m.hhadPicks && m.hhadPicks.length) ? m.hhadPicks : hhadFromSides(had),
       ftScores: scores,
       ttgPicks: ttg,
       hafuPicks: hafu,
       htScores: hafu,
       ftOu: ttg,
       htOu: hafu,
-      scriptNote: "分析助手：比分、进球、半全场跟着胜平负走。",
+      scriptNote: m.scriptNote || "比分跟进球数盘、让球线和欧赔热度，不写死小球。",
       iw: iwFlat(m.sp, "即时盘", "未见有效变盘，不改判。"),
       agents: inferAgents(m),
-      market: inferMarket(m),
+      market: m.market || inferMarket(m),
     };
+    if (live) {
+      delete out.iw;
+      delete out.agents;
+    }
+    return out;
   }
 
   function tally(list) {
@@ -434,6 +442,7 @@
         delete extra.htScores;
         delete extra.ftOu;
         delete extra.htOu;
+        delete extra.scriptNote;
         const baked = m.source === "live" ? {
           market: m.market, summary: m.summary,
           ftOu: m.ftOu, ftScores: m.ftScores, htScores: m.htScores, htOu: m.htOu,
