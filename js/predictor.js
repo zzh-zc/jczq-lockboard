@@ -1,6 +1,5 @@
 (function (global) {
   const MIX = /日职|日乙|J1|J2|韩K|K联|澳超|芬超|瑞超|挪超|挪甲|美职|中甲/;
-  const HF = { hh: "胜胜", hd: "胜平", ha: "胜负", dh: "平胜", dd: "平平", da: "平负", ah: "负胜", ad: "负平", aa: "负负" };
 
   function n(x) {
     return global.CC_LIVE ? CC_LIVE.n(x) : parseFloat(x);
@@ -21,84 +20,143 @@
     return "even";
   }
 
-  function top2(odds, labels) {
-    const rows = Object.keys(labels).map((k) => ({ label: labels[k], odds: n(odds[k]) })).filter((r) => r.odds > 1);
-    rows.sort((a, b) => a.odds - b.odds);
-    const pair = rows.slice(0, 2).map((r) => r.label);
-    while (pair.length < 2) pair.push(pair[0] || "—");
-    return pair;
+  function sidesOf(pick) {
+    const p = String(pick || "");
+    const set = [];
+    if (/主|让胜/.test(p) || /(^|\/)胜(\/|$)/.test(p)) set.push("胜");
+    if (/平|让平/.test(p) || /(^|\/)平(\/|$)/.test(p)) set.push("平");
+    if (/客|让负/.test(p) || /(^|\/)负(\/|$)/.test(p)) set.push("负");
+    return set.length ? set : ["胜"];
   }
 
-  function crsPair(crs) {
-    const rows = [];
-    Object.keys(crs || {}).forEach((k) => {
-      const hit = k.match(/^s(\d{2})s(\d{2})$/);
-      if (!hit) return;
-      const odds = n(crs[k]);
-      if (!odds) return;
-      rows.push({ label: Number(hit[1]) + "-" + Number(hit[2]), odds: odds });
+  function pad2(arr, fb) {
+    const out = (arr || []).filter(Boolean).slice();
+    (fb || []).forEach((x) => {
+      if (out.length < 2 && x && out.indexOf(x) < 0) out.push(x);
     });
-    rows.sort((a, b) => a.odds - b.odds);
-    const pair = rows.slice(0, 2).map((r) => r.label);
-    return pair.length === 2 ? pair : null;
-  }
-
-  function ttgPair(ttg) {
-    const rows = [];
-    for (let i = 0; i <= 7; i += 1) {
-      const odds = n((ttg || {})["s" + i]);
-      if (!odds) continue;
-      rows.push({ label: i === 7 ? "7+" : i + "球", odds: odds });
-    }
-    rows.sort((a, b) => a.odds - b.odds);
-    const pair = rows.slice(0, 2).map((r) => r.label);
-    return pair.length === 2 ? pair : null;
-  }
-
-  function hafuPair(hafu) {
-    const rows = Object.keys(HF).map((k) => ({ label: HF[k], odds: n((hafu || {})[k]) })).filter((r) => r.odds > 1);
-    rows.sort((a, b) => a.odds - b.odds);
-    const pair = rows.slice(0, 2).map((r) => r.label);
-    return pair.length === 2 ? pair : null;
+    while (out.length < 2) out.push(out[0] || "—");
+    return out.slice(0, 2);
   }
 
   function fallbackScores(pick) {
-    if (/客|让负|0/.test(pick) && !/主|让胜|3/.test(pick)) return ["0-1", "1-2"];
-    if (/主|让胜|3/.test(pick) && /客|让负|0/.test(pick)) return ["1-0", "0-1"];
-    if (/平|让平|1/.test(pick) && /主|让胜|3/.test(pick)) return ["1-0", "1-1"];
-    if (/平|让平|1/.test(pick) && /客|让负|0/.test(pick)) return ["0-1", "1-1"];
-    if (/平|让平|1/.test(pick)) return ["0-0", "1-1"];
-    return ["1-0", "2-1"];
+    const s = sidesOf(pick);
+    const has = (x) => s.indexOf(x) >= 0;
+    if (has("胜") && has("负")) return ["1-0", "0-1"];
+    if (has("胜") && has("平")) return ["1-0", "0-0"];
+    if (has("负") && has("平")) return ["1-1", "0-1"];
+    if (has("负")) return ["0-1", "0-2"];
+    if (has("平")) return ["0-0", "1-1"];
+    return ["1-0", "2-0"];
   }
 
-  function fallbackTtg(pick) {
-    if (/平/.test(pick)) return ["1球", "2球"];
-    if (/客|让负/.test(pick) && !/主|让胜/.test(pick)) return ["2球", "3球"];
-    return ["2球", "3球"];
+  function rankScore(side, row) {
+    const p = String(row.label).split("-").map(Number);
+    if (side === "胜") return [p[1], p[0], row.odds];
+    if (side === "负") return [p[0], p[1], row.odds];
+    return [p[0] + p[1], p[0], row.odds];
   }
 
-  function fallbackHafu(pick) {
-    if (/客|让负|0/.test(pick) && !/主|让胜|3/.test(pick)) return ["负负", "平负"];
-    if (/主|让胜|3/.test(pick) && /客|让负|0/.test(pick)) return ["胜胜", "负负"];
-    if (/平|让平|1/.test(pick)) return ["胜胜", "平平"];
+  function cmpKey(a, b) {
+    for (let i = 0; i < a.length; i += 1) {
+      if (a[i] !== b[i]) return a[i] - b[i];
+    }
+    return 0;
+  }
+
+  function crsAligned(crs, sides) {
+    const by = { 胜: [], 平: [], 负: [] };
+    Object.keys(crs || {}).forEach((k) => {
+      const hit = k.match(/^s(\d{2})s(\d{2})$/);
+      if (!hit) return;
+      const h = Number(hit[1]);
+      const a = Number(hit[2]);
+      const odds = n(crs[k]);
+      if (!odds) return;
+      const side = h > a ? "胜" : h < a ? "负" : "平";
+      by[side].push({ label: h + "-" + a, odds: odds });
+    });
+    Object.keys(by).forEach((side) => {
+      by[side].sort((x, y) => cmpKey(rankScore(side, x), rankScore(side, y)));
+    });
+    if (sides.length === 1) return by[sides[0]].slice(0, 2).map((r) => r.label);
+    const a = by[sides[0]][0];
+    const b = by[sides[1]][0];
+    return [a && a.label, b && b.label].filter(Boolean);
+  }
+
+  function ttgAligned(ttg, scores) {
+    const tots = [];
+    (scores || []).forEach((s) => {
+      const p = String(s).split("-");
+      if (p.length < 2) return;
+      const tot = Number(p[0]) + Number(p[1]);
+      const lab = tot >= 7 ? "7+" : tot + "球";
+      if (tots.indexOf(lab) < 0) tots.push(lab);
+    });
+    if (tots.length >= 2) return tots.slice(0, 2);
+    const base = tots[0] ? parseInt(tots[0], 10) : 1;
+    const fb = [base, base + 1, Math.max(0, base - 1)].map((i) => (i >= 7 ? "7+" : i + "球"));
+    const rows = fb.map((lab) => {
+      const i = lab === "7+" ? 7 : parseInt(lab, 10);
+      return { label: lab, odds: n((ttg || {})["s" + i]) || 99 };
+    });
+    rows.sort((a, b) => a.odds - b.odds);
+    return pad2(tots, rows.map((r) => r.label));
+  }
+
+  function hafuAligned(sides) {
+    const has = (x) => sides.indexOf(x) >= 0;
+    if (has("胜") && has("平") && !has("负")) return ["平胜", "平平"];
+    if (has("负") && has("平") && !has("胜")) return ["平平", "平负"];
+    if (has("胜") && has("负") && !has("平")) return ["胜胜", "负负"];
+    if (has("负") && !has("胜")) return ["负负", "平负"];
+    if (has("平") && !has("胜")) return ["平平", "平胜"];
     return ["胜胜", "平胜"];
   }
 
+  function hhadAligned(hhad, sides) {
+    const map = { 胜: ["h", "让胜"], 平: ["d", "让平"], 负: ["a", "让负"] };
+    let keys = sides.map((s) => map[s]).filter(Boolean);
+    if (keys.length === 1) {
+      keys = sides[0] === "负" ? [map.负, map.平] : [keys[0], map.平];
+    }
+    const rows = keys.map((x) => ({ label: x[1], odds: n((hhad || {})[x[0]]) || 99 }));
+    rows.sort((a, b) => a.odds - b.odds);
+    return pad2(rows.map((r) => r.label), rows.map((r) => r.label));
+  }
+
   function fillMarkets(locked, raw, hadOdds, line) {
-    locked.hadPicks = top2(hadOdds || {}, { h: "主", d: "平", a: "客" });
-    const hh = raw.hhad || {};
-    const ho = { h: n(hh.h), d: n(hh.d), a: n(hh.a) };
-    locked.hhadPicks = ho.h && ho.d && ho.a
-      ? top2(ho, { h: "让胜", d: "让平", a: "让负" })
-      : locked.hadPicks.map((x) => x.replace("主", "让胜").replace("平", "让平").replace("客", "让负"));
-    locked.ftScores = crsPair(raw.crs) || fallbackScores(locked.pick);
-    locked.ttgPicks = ttgPair(raw.ttg) || fallbackTtg(locked.pick);
-    locked.hafuPicks = hafuPair(raw.hafu) || fallbackHafu(locked.pick);
+    raw = raw || {};
+    locked._mk = { crs: raw.crs, ttg: raw.ttg, hafu: raw.hafu, hhad: raw.hhad, had: hadOdds, line: line };
+    const sides = sidesOf(locked.pick);
+    locked.hadPicks = sides.slice();
+    locked.hhadPicks = hhadAligned(raw.hhad || {}, sides);
+    locked.ftScores = pad2(crsAligned(raw.crs, sides), fallbackScores(locked.pick));
+    locked.ttgPicks = ttgAligned(raw.ttg, locked.ftScores);
+    locked.hafuPicks = hafuAligned(sides);
     locked.ftOu = locked.ttgPicks;
     locked.htScores = locked.hafuPicks;
     locked.htOu = locked.hafuPicks;
-    locked.scriptNote = "每种两个选择。锁号看胜平负/让球，比分进球半全场不进稳串。";
+    locked.scriptNote = "分析助手：比分、进球、半全场跟着胜平负走，不单独追最低赔。";
     locked.handicap = line ? (line > 0 ? "+" + line : String(line)) : locked.handicap || "";
+  }
+
+  function realign(list) {
+    (list || []).forEach((m) => {
+      if (!m._mk) return;
+      fillMarkets(m, m._mk, m._mk.had, m._mk.line);
+    });
+  }
+
+  function marketSrc(raw, twin) {
+    const mk = twin && twin._mk;
+    if (!mk) return raw;
+    return {
+      crs: (raw && raw.crs) || mk.crs,
+      ttg: (raw && raw.ttg) || mk.ttg,
+      hafu: (raw && raw.hafu) || mk.hafu,
+      hhad: (raw && raw.hhad) || mk.hhad,
+    };
   }
 
   function quake(had) {
@@ -216,7 +274,7 @@
       if (veto) why.push("平博和平均盘拧着");
       return {
         light: "red", drift: drift, veto: why.join(" · ") || "公司吵架", quake: shake,
-        note: "市场标红：热门单边不可信。本场锁号仍给 " + m.pick + "。",
+        note: "市场标红：热门单边不可信。本场锁号仍给 " + String(m.pick || "").replace(/主/g, "胜").replace(/客/g, "负") + "。",
       };
     }
     const pin = books && global.CC_BOOKS ? CC_BOOKS.label(books.pinSide) : "";
@@ -229,7 +287,7 @@
   }
 
   function summarize(m, eu, ah, fight, veto, sp, shake, books) {
-    const bits = [sp, "锁 " + m.pick, "胜平负 " + (m.hadPicks || []).join("/"), "让球 " + (m.hhadPicks || []).join("/"), shake];
+    const bits = [sp, "锁 " + String(m.pick || "").replace(/主/g, "胜").replace(/客/g, "负"), "胜平负 " + (m.hadPicks || []).join("/"), "让球 " + (m.hhadPicks || []).join("/"), shake];
     if (books && books.avgOpen && books.avgNow) {
       bits.push("平均初盘 " + books.avgOpen.h.toFixed(2) + " → 即时 " + books.avgNow.h.toFixed(2));
     }
@@ -281,7 +339,7 @@
       extra || `算法 ${list.length} 场，双选 ${dual}/${list.length}（上限 50%）`,
       green.length ? "跟一边：" + green.join("、") : "这一轮没有清楚的单边",
       stop.length ? "红灯仍锁：" + stop.join("、") : "没有红灯场",
-      "每种玩法给两个选择。伤停未知，点名不上才改号。",
+      "分析助手：比分进球半全场跟着胜平负。伤停未知，点名不上才改号。",
     ];
   }
 
@@ -309,15 +367,6 @@
     return (list || []).find((m) => sameTeam(m.home, raw.home) && sameTeam(m.away, raw.away));
   }
 
-  function copyScript(locked, twin) {
-    if (!twin) return;
-    if (twin.ftScores) locked.ftScores = twin.ftScores.slice();
-    if (twin.ttgPicks) locked.ttgPicks = twin.ttgPicks.slice();
-    if (twin.hafuPicks) locked.hafuPicks = twin.hafuPicks.slice();
-    locked.ftOu = locked.ttgPicks;
-    locked.htScores = locked.hafuPicks;
-  }
-
   function lockBeidan(raw, jcList) {
     const hh = raw.hhad || {};
     const o = { h: n(hh.h), d: n(hh.d), a: n(hh.a) };
@@ -331,8 +380,7 @@
     locked.pick = asHandicap(locked.pick);
     stamp(locked, raw, fmtSp(o), env);
     const had = { h: n((raw.had || {}).h), d: n((raw.had || {}).d), a: n((raw.had || {}).a) };
-    fillMarkets(locked, raw, had.h ? had : o, line);
-    copyScript(locked, twinOf(raw, jcList));
+    fillMarkets(locked, marketSrc(raw, twinOf(raw, jcList)), had.h ? had : o, line);
     locked.ticks = ticksOf(had.h ? had : o, ah, null);
     locked.summary = summarize(locked, eu, ah, fight, false, locked.sp, "北单让球盘", null);
     locked.market = marketOf(locked, eu, ah, fight, false, "北单让球盘", null);
@@ -369,8 +417,7 @@
       locked.light = "yellow";
     }
     stamp(locked, raw, fmtSp(o), env);
-    fillMarkets(locked, twin || raw, o, 0);
-    copyScript(locked, twin);
+    fillMarkets(locked, marketSrc(raw, twin), o, 0);
     locked.combo = toCombo(locked.pick);
     locked.ticks = ticksOf(o, "even", null);
     locked.summary = summarize(locked, eu, "even", false, false, locked.sp, "胜负彩", null);
@@ -396,13 +443,14 @@
       `${kind} · ${pack.draw || ""} · 截止 ${pack.end || ""}`,
       "主推：" + line,
       "复式：" + dual,
-      "任14/任9 比竞彩宽，1.3 禁止死胆。每种仍给两个选择。",
+      "任14/任9 比竞彩宽，1.3 禁止死胆。套餐跟着胜平负走。",
     ];
   }
 
   function apply(pack) {
     const locked = pack.matches.map(lockOne);
     capDual(locked);
+    realign(locked);
     const old = (global.CC_DATA.jczq && global.CC_DATA.jczq.matches) || [];
     locked.forEach((m) => overlayNotes(m, old));
     const settled = old.filter((m) => m.result);
@@ -419,6 +467,7 @@
   function applyBeidan(pack, jcList) {
     const locked = (pack.matches || []).map((m) => lockBeidan(m, jcList)).filter(Boolean);
     capDual(locked);
+    realign(locked);
     global.CC_DATA.beidan.matches = locked;
     global.CC_DATA.beidan.title = "北单 · 在售 " + locked.length + " 场";
     global.CC_DATA.beidan.version = (pack.live ? "500即时 " : "500缓存 ") + (pack.updatedAt || "");

@@ -255,17 +255,52 @@
   function inferFt(m) {
     const p = m.pick || "";
     const hcap = m.handicap || "";
-    if (p === "主" || p === "让胜" || p === "3") return pair("1-0", "2-1");
-    if (p === "客" || p === "让负" || p === "0") return pair("0-1", "1-2");
-    if (p === "平" || p === "让平" || p === "1") return pair("1-1", "0-0");
-    if (p === "主/平" || p === "让胜/让平") return pair("1-0", "1-1");
+    if (p === "主" || p === "让胜" || p === "3") return pair("1-0", "2-0");
+    if (p === "客" || p === "让负" || p === "0") return pair("0-1", "0-2");
+    if (p === "平" || p === "让平" || p === "1") return pair("0-0", "1-1");
+    if (p === "主/平" || p === "让胜/让平") return pair("1-0", "0-0");
     if (p === "主/客" || p === "让胜/让负" || p === "30") return pair("1-0", "0-1");
     if (p === "平/客" || p === "让平/让负") {
       if (hcap === "-1") return pair("1-0", "2-0");
       if (hcap === "+1") return pair("0-1", "0-2");
       return pair("1-1", "0-1");
     }
-    return pair("1-0", "1-1");
+    return pair("1-0", "0-0");
+  }
+
+  function sidesFromPick(p) {
+    const s = [];
+    if (/主|让胜/.test(p || "")) s.push("胜");
+    if (/平|让平/.test(p || "")) s.push("平");
+    if (/客|让负/.test(p || "")) s.push("负");
+    return s.length ? s : ["胜"];
+  }
+
+  function hafuFromPick(p) {
+    if (/客|让负/.test(p) && /平/.test(p)) return pair("平平", "平负");
+    if (/客|让负/.test(p) && !/主|让胜/.test(p)) return pair("负负", "平负");
+    if (/主|让胜/.test(p) && /平/.test(p)) return pair("平胜", "平平");
+    if (/主|让胜/.test(p) && /客|让负/.test(p)) return pair("胜胜", "负负");
+    if (/平/.test(p) && !/主|客|让胜|让负/.test(p)) return pair("平平", "平胜");
+    return pair("胜胜", "平胜");
+  }
+
+  function ttgFromScores(scores) {
+    const tots = [];
+    (scores || []).forEach((x) => {
+      const p = String(x).split("-");
+      const lab = Number(p[0]) + Number(p[1]) + "球";
+      if (tots.indexOf(lab) < 0) tots.push(lab);
+    });
+    while (tots.length < 2) tots.push(tots[0] === "1球" ? "2球" : "1球");
+    return tots.slice(0, 2);
+  }
+
+  function hhadFromSides(sides) {
+    const map = { 胜: "让胜", 平: "让平", 负: "让负" };
+    const out = sides.map((s) => map[s]).filter(Boolean);
+    if (out.length === 1) out.push("让平");
+    return out.slice(0, 2);
   }
 
   function inferHt(m) {
@@ -341,12 +376,20 @@
   }
 
   function defaultExtras(m) {
+    const scores = inferFt(m);
+    const had = sidesFromPick(m.pick);
+    const hafu = hafuFromPick(m.pick);
+    const ttg = ttgFromScores(scores);
     return {
-      ftScores: inferFt(m),
-      htScores: inferHt(m),
-      ftOu: inferOu(m),
-      htOu: pair("小1.5", "小0.5"),
-      scriptNote: "脚本层。锁号仍以胜平负为准，波胆不进稳串。",
+      hadPicks: had,
+      hhadPicks: hhadFromSides(had),
+      ftScores: scores,
+      ttgPicks: ttg,
+      hafuPicks: hafu,
+      htScores: hafu,
+      ftOu: ttg,
+      htOu: hafu,
+      scriptNote: "分析助手：比分、进球、半全场跟着胜平负走。",
       iw: iwFlat(m.sp, "即时盘", "未见有效变盘，不改判。"),
       agents: inferAgents(m),
       market: inferMarket(m),

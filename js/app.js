@@ -33,10 +33,22 @@
     return { dual, total: matches.length, pct };
   }
 
+  function showPick(pick) {
+    return String(pick || "").replace(/主/g, "胜").replace(/客/g, "负");
+  }
+
   function pickClass(token) {
-    if (/主|让胜|3/.test(token) && !/客|让负|0/.test(token)) return "home";
-    if (/平|让平|1/.test(token) && !/主|客|让胜|让负/.test(token)) return "draw";
-    if (/客|让负|0/.test(token) && !/主|让胜|3/.test(token)) return "away";
+    const t = String(token || "");
+    if (/^\d-\d$/.test(t)) {
+      const p = t.split("-").map(Number);
+      return p[0] > p[1] ? "home" : p[0] < p[1] ? "away" : "draw";
+    }
+    if (/^(胜胜|平胜|负胜|让胜|胜|主)$/.test(t) || t === "3") return "home";
+    if (/^(平平|胜平|负平|让平|平)$/.test(t) || t === "1") return "draw";
+    if (/^(负负|平负|胜负|让负|负|客)$/.test(t) || t === "0") return "away";
+    if (/主|让胜/.test(t) && !/客|让负/.test(t)) return "home";
+    if (/平|让平/.test(t) && !/主|客|让胜|让负/.test(t)) return "draw";
+    if (/客|让负/.test(t) && !/主|让胜/.test(t)) return "away";
     return "draw";
   }
 
@@ -47,7 +59,7 @@
   }
 
   function chips(pick) {
-    return String(pick || "").split("/").filter(Boolean).map((p) =>
+    return showPick(pick).split("/").filter(Boolean).map((p) =>
       `<span class="chip ${pickClass(p)}">${p}</span>`
     ).join("");
   }
@@ -142,9 +154,11 @@
                 ${m.dual ? '<span class="chip">买两边</span>' : '<span class="chip">买一边</span>'}
                 ${envChip(m)}
               </div>
-              <div class="script-line">
-                <span>胜平负 ${(m.hadPicks || String(m.pick || "").split("/")).join("/")}</span>
-                <span>让 ${(m.hhadPicks || []).join("/") || "—"}</span>
+              <div class="script-line fx-mini">
+                ${(m.hadPicks || showPick(m.pick).split("/").filter(Boolean)).join(" ")}
+               　${(m.ftScores || []).join(" / ") || "—"}
+               　${(m.ttgPicks || m.ftOu || []).join(" / ") || ""}
+               　${(m.hafuPicks || []).join(" / ") || ""}
               </div>
             </button>
           `).join("") : `<div class="empty">这一天还没有锁号。翻到相邻日期，或点右上角录入。</div>`}
@@ -162,7 +176,7 @@
           <div class="pool-item" data-id="${m.id}">
             <div class="row"><b>${m.code}</b> ${chips(m.pick)}</div>
             <div class="kicker">${m.home} vs ${m.away}${m.paperOppose ? " · 热门别跟" : ""}</div>
-            <div class="script-line">${(m.hadPicks || []).join("/")} · 让${(m.hhadPicks || []).join("/")}</div>
+            <div class="script-line fx-mini">${(m.hadPicks || []).join(" ")}　${(m.ftScores || []).join("/")}</div>
           </div>
         `).join("") || "<p class='kicker'>无</p>"}
       </aside>
@@ -223,30 +237,31 @@
   }
 
   function renderScripts(m) {
-    const cards = [
-      ["胜平负", m.hadPicks || String(m.pick || "").split("/").filter(Boolean)],
-      ["让球", m.hhadPicks],
+    const rows = [
+      ["胜平负", m.hadPicks || showPick(m.pick).split("/").filter(Boolean)],
+      ["让球" + (m.handicap ? " " + m.handicap : ""), m.hhadPicks],
       ["比分", m.ftScores],
       ["进球数", m.ttgPicks || m.ftOu],
       ["半全场", m.hafuPicks || m.htScores],
     ];
     return `
-      <div class="script-grid">
-        ${cards.map(([title, pair]) => `
-          <div class="script-card">
-            <h4>${title} · 2</h4>
-            <div class="pair">${(pair || ["—", "—"]).map((x) => `<b>${x}</b>`).join("")}</div>
+      <div class="fx-assist">
+        <div class="fx-assist-head">分析助手</div>
+        ${rows.map(([lab, pair]) => `
+          <div class="fx-row">
+            <span>${lab}</span>
+            <div class="fx-picks">${(pair || []).map((x) => `<b class="chip ${pickClass(x)}">${x}</b>`).join("") || "—"}</div>
           </div>
         `).join("")}
+        <p class="fx-note">${m.scriptNote || "比分、进球、半全场跟着胜平负走。"}</p>
       </div>
-      <div class="note">${m.scriptNote || "每种两个选择。锁号看胜平负/让球，比分进球半全场不进稳串。"}</div>
     `;
   }
 
   function renderObserve(m) {
     const mk = m.market || { light: "yellow", drift: "两边差不多", veto: "看不出一边倒", quake: "暂时没变", note: "先当胶着，不单边。" };
     const cls = mk.light || "yellow";
-    const title = cls === "green" ? "🟢 清楚 · 可以跟一边" : cls === "red" ? "🔴 市场别碰热门单边 · 仍锁 " + (m.pick || "") : "🟡 胶着 · 不要只买一边";
+    const title = cls === "green" ? "🟢 清楚 · 可以跟一边" : cls === "red" ? "🔴 市场别碰热门单边 · 仍锁 " + showPick(m.pick || "") : "🟡 胶着 · 不要只买一边";
     return `
       <div class="observe ${cls}">
         <div class="observe-light">${title}</div>
@@ -362,7 +377,7 @@
       </div>
       ${renderObserve(m)}
       <div class="verdict">
-        <div><span>锁号</span><b>${m.pick}${m.combo ? " · 复式 " + m.combo : ""}</b></div>
+        <div><span>锁号</span><b>${showPick(m.pick)}${m.combo ? " · 复式 " + m.combo : ""}</b></div>
         <div><span>现在赔率</span><b>${m.sp || "—"}</b></div>
         <div><span>怎么买</span><b>${m.dual ? "买两边" : "只买一边"}</b></div>
       </div>
@@ -424,7 +439,7 @@
     const day = data.matches.filter((m) => m.date === state.date);
     const lines = [`${data.title}　${state.date}`, ""];
     day.forEach((m) => {
-      const script = `　胜平负 ${(m.hadPicks || []).join("/") || m.pick}　让球 ${(m.hhadPicks || []).join("/") || "—"}　比分 ${(m.ftScores || []).join("/")}　进球 ${(m.ttgPicks || m.ftOu || []).join("/")}　半全场 ${(m.hafuPicks || []).join("/")}`;
+      const script = `　胜平负 ${(m.hadPicks || []).join("/") || showPick(m.pick)}　让球 ${(m.hhadPicks || []).join("/") || "—"}　比分 ${(m.ftScores || []).join("/")}　进球 ${(m.ttgPicks || m.ftOu || []).join("/")}　半全场 ${(m.hafuPicks || []).join("/")}`;
       const lamp = (m.market && m.market.light) === "red" ? "　别碰" : (m.market && m.market.light) === "green" ? "　清楚" : "　胶着";
       lines.push(`${m.code} ${m.home} vs ${m.away}　${m.pick}${lamp}${script}`);
     });

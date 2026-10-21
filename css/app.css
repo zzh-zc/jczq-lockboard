@@ -263,6 +263,36 @@ label input, label select, label textarea {
   margin-top: 4px; color: var(--amber); font-size: 12px; font-weight: 650;
   display: flex; gap: 8px; flex-wrap: wrap;
 }
+.script-line.fx-mini {
+  color: #c8f0d8; font-weight: 600; letter-spacing: 0.02em;
+}
+.fx-assist {
+  margin: 12px 0 0;
+  background: linear-gradient(180deg, #0d241c 0%, #0b1018 100%);
+  border: 1px solid #1d5c45;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.fx-assist-head {
+  background: #083f2e;
+  color: #c8f0d8;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 8px 12px;
+}
+.fx-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border-top: 1px solid #1a3d32;
+}
+.fx-row > span { color: #8fb8a6; font-size: 12px; min-width: 72px; flex-shrink: 0; }
+.fx-picks { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.fx-picks .chip { font-weight: 700; min-width: 52px; text-align: center; }
+.fx-note { margin: 0; padding: 8px 12px 10px; color: var(--muted); font-size: 12px; }
 .iw { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
 .iw > div {
   background: #0b1018; border: 1px solid var(--line); border-radius: 10px; padding: 10px;
