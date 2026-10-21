@@ -38,49 +38,86 @@
     return out.slice(0, 2);
   }
 
-  function fallbackScores(pick) {
-    const s = sidesOf(pick);
-    const has = (x) => s.indexOf(x) >= 0;
-    if (has("胜") && has("负")) return ["2-1", "1-2"];
-    if (has("胜") && has("平")) return ["2-1", "1-1"];
-    if (has("负") && has("平")) return ["1-2", "1-1"];
-    if (has("负")) return ["1-2", "0-2"];
-    if (has("平")) return ["1-1", "2-2"];
-    return ["2-1", "2-0"];
-  }
-
   function totOf(row) {
     const p = String(row.label).split("-").map(Number);
     return (p[0] || 0) + (p[1] || 0);
   }
 
-  function preferScore(row, side, night) {
+  function scoreCtx(ttg, line, had, night) {
+    let sum = 0;
+    let wsum = 0;
+    let peak = night ? 3 : 2;
+    let peakO = 99;
+    for (let i = 0; i <= 7; i += 1) {
+      const o = n((ttg || {})["s" + i]);
+      if (!o || o < 1.01) continue;
+      const w = 1 / o;
+      sum += i * w;
+      wsum += w;
+      if (o < peakO) {
+        peakO = o;
+        peak = i;
+      }
+    }
+    let aim = wsum ? sum / wsum : (night ? 3 : 2.4);
+    if (peak >= 3) aim = Math.max(aim, peak);
+    if (Math.abs(line || 0) >= 1) aim = Math.max(aim, 2.6);
+    const fav = had ? Math.min(had.h || 9, had.d || 9, had.a || 9) : 9;
+    if (fav <= 1.25) aim = Math.max(aim, 3.1);
+    else if (fav <= 1.45) aim = Math.max(aim, 2.7);
+    let margin = 0;
+    if ((line || 0) <= -1.25) margin = 2;
+    else if ((line || 0) <= -0.75) margin = 1.2;
+    else if ((line || 0) >= 1.25) margin = -2;
+    else if ((line || 0) >= 0.75) margin = -1.2;
+    else if (had && had.h && had.a) {
+      if (had.h < had.a - 0.35) margin = fav <= 1.3 ? 2.1 : fav <= 1.7 ? 1.2 : 0.8;
+      else if (had.a < had.h - 0.35) margin = fav <= 1.3 ? -2.1 : fav <= 1.7 ? -1.2 : -0.8;
+    }
+    return { aim: aim, peak: peak, margin: margin, line: line || 0, fav: fav };
+  }
+
+  function fallbackScores(pick, ctx) {
+    const s = sidesOf(pick);
+    const has = (x) => s.indexOf(x) >= 0;
+    const fat = ctx && ctx.aim >= 2.8;
+    if (has("胜") && has("负")) return fat ? ["3-2", "2-3"] : ["2-1", "1-2"];
+    if (has("胜") && has("平")) return fat ? ["2-1", "2-2"] : ["2-1", "1-1"];
+    if (has("负") && has("平")) return fat ? ["1-2", "2-2"] : ["1-2", "1-1"];
+    if (has("负")) return fat ? ["1-2", "1-3"] : ["1-2", "0-2"];
+    if (has("平")) return fat ? ["2-2", "1-1"] : ["1-1", "2-2"];
+    return fat ? ["3-1", "2-1"] : ["2-1", "2-0"];
+  }
+
+  function preferScore(row, side, ctx) {
     const tot = totOf(row);
-    const aim = night ? 3 : 2.4;
-    let w = row.odds;
-    if (tot === 0) w += 12;
-    if (tot === 1) w += 2.2;
-    if (tot >= 6) w += 1.6;
-    w += Math.abs(tot - aim) * 0.35;
-    if (side === "平" && tot === 0) w += 6;
+    const p = String(row.label).split("-").map(Number);
+    const margin = (p[0] || 0) - (p[1] || 0);
+    let w = Math.log(Math.max(row.odds, 1.05));
+    w += Math.abs(tot - ctx.aim) * 0.5;
+    if (side === "平") w += Math.abs(tot - Math.max(2, ctx.aim)) * 0.25;
+    else w += Math.abs(margin - ctx.margin) * 0.42;
+    if (ctx.aim >= 2.9 && tot >= 4 && tot <= 5) w -= 0.18;
+    if (ctx.aim <= 1.7 && tot >= 4) w += 0.55;
+    if (ctx.aim >= 2.4 && tot <= 1) w += 0.35;
     return w;
   }
 
-  function pickCrs(rows, side, night) {
-    const tiny = { "0-0": 1, "1-0": 1, "0-1": 1 };
+  function pickCrs(rows, side, ctx) {
     const list = (rows || []).slice();
     if (!list.length) return [];
-    const fat = list.filter((r) => !tiny[r.label] && totOf(r) >= 2);
-    const use = fat.length ? fat : list;
-    use.sort((a, b) => preferScore(a, side, night) - preferScore(b, side, night) || a.odds - b.odds);
-    const out = [];
-    use.forEach((r) => {
-      if (out.indexOf(r.label) < 0) out.push(r.label);
+    list.sort((a, b) => preferScore(a, side, ctx) - preferScore(b, side, ctx) || a.odds - b.odds);
+    const out = [list[0].label];
+    const firstTot = totOf(list[0]);
+    list.slice(1).forEach((r) => {
+      if (out.length >= 2) return;
+      if (totOf(r) !== firstTot || out.length === 1) out.push(r.label);
     });
+    if (out.length < 2 && list[1]) out.push(list[1].label);
     return out;
   }
 
-  function crsAligned(crs, sides, night) {
+  function crsAligned(crs, sides, ctx) {
     const by = { 胜: [], 平: [], 负: [] };
     Object.keys(crs || {}).forEach((k) => {
       const hit = k.match(/^s(\d{2})s(\d{2})$/);
@@ -88,13 +125,13 @@
       const h = Number(hit[1]);
       const a = Number(hit[2]);
       const odds = n(crs[k]);
-      if (!odds) return;
+      if (!odds || odds < 1.01) return;
       const side = h > a ? "胜" : h < a ? "负" : "平";
       by[side].push({ label: h + "-" + a, odds: odds });
     });
-    if (sides.length === 1) return pickCrs(by[sides[0]], sides[0], night).slice(0, 2);
-    const a = pickCrs(by[sides[0]], sides[0], night)[0];
-    const b = pickCrs(by[sides[1]], sides[1], night)[0];
+    if (sides.length === 1) return pickCrs(by[sides[0]], sides[0], ctx).slice(0, 2);
+    const a = pickCrs(by[sides[0]], sides[0], ctx)[0];
+    const b = pickCrs(by[sides[1]], sides[1], ctx)[0];
     return [a, b].filter(Boolean);
   }
 
@@ -147,14 +184,15 @@
     locked.hhadPicks = hhadAligned(raw.hhad || {}, sides);
     const hh = Number(String(locked.kickoff || "00:00").slice(0, 2));
     const night = /欧冠|欧罗巴|欧协|英超|西甲|意甲|德甲|法甲/.test(String(locked.league || "")) || hh >= 21 || hh <= 5;
-    locked.ftScores = pad2(crsAligned(raw.crs, sides, night), fallbackScores(locked.pick));
+    const ctx = scoreCtx(raw.ttg, line, hadOdds, night);
+    locked.ftScores = pad2(crsAligned(raw.crs, sides, ctx), fallbackScores(locked.pick, ctx));
     locked.ttgPicks = ttgAligned(raw.ttg, locked.ftScores);
     locked.hafuPicks = hafuAligned(sides);
     locked.ftOu = locked.ttgPicks;
     locked.htScores = locked.hafuPicks;
     locked.htOu = locked.hafuPicks;
-    locked.scriptNote = "分析助手：比分、进球、半全场跟着胜平负走，不单独追最低赔。";
     locked.handicap = line ? (line > 0 ? "+" + line : String(line)) : locked.handicap || "";
+    locked.scriptNote = "比分看进球数盘峰值 " + ctx.peak + " 球、让球 " + (locked.handicap || "0") + "、欧赔热度，小球大球都按盘走。";
   }
 
   function realign(list) {
