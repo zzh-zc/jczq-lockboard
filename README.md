@@ -2,7 +2,7 @@
 
 竞彩 / 北单 / 任14 读盘锁号页。只看盘口怎么说话，不猜庄、不拿伤停故事压盘。
 
-在线地址（推送后）：见仓库 GitHub Pages。
+在线地址：https://zzh-zc.github.io/jczq-lockboard/
 
 ## 怎么看
 
