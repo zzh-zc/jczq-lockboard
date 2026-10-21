@@ -2,36 +2,40 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0c111a" />
+  <meta name="format-detection" content="telephone=no" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <title>锁号台 · 竞彩 / 北单 / 任14</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=9" />
+  <link rel="stylesheet" href="css/app.css?v=12" />
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <span class="logo">盘</span>
-      <div>
-        <h1>锁号台</h1>
-        <p>欧亚打架别碰 · 低赔不出手 · 信号不明就路过</p>
+  <div class="chrome">
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">盘</span>
+        <div>
+          <h1>锁号台</h1>
+          <p>欧亚打架别碰 · 低赔不出手 · 信号不明就路过</p>
+        </div>
       </div>
-    </div>
-    <div class="top-stats" id="topStats"></div>
-    <div class="top-actions">
-      <button type="button" class="ghost" id="btnCopy">复制锁号</button>
-      <button type="button" class="ghost" id="btnAdd">+ 录入赛事</button>
-    </div>
-  </header>
-
-  <nav class="tabs" id="tabs">
-    <button type="button" class="tab on" data-view="jczq">竞彩</button>
-    <button type="button" class="tab" data-view="beidan">北单日职</button>
-    <button type="button" class="tab" data-view="r14">任 14 · 26146</button>
-    <button type="button" class="tab" data-view="review">昨夜复盘</button>
-    <button type="button" class="tab" data-view="rules">怎么看</button>
-  </nav>
+      <div class="top-stats" id="topStats"></div>
+      <div class="top-actions">
+        <button type="button" class="ghost" id="btnCopy">复制锁号</button>
+        <button type="button" class="ghost" id="btnAdd">+ 录入</button>
+      </div>
+    </header>
+    <nav class="tabs" id="tabs">
+      <button type="button" class="tab on" data-view="jczq">竞彩</button>
+      <button type="button" class="tab" data-view="beidan">北单日职</button>
+      <button type="button" class="tab" data-view="r14">任 14 · 26146</button>
+      <button type="button" class="tab" data-view="review">昨夜复盘</button>
+      <button type="button" class="tab" data-view="rules">怎么看</button>
+    </nav>
+  </div>
 
   <main class="workspace" id="workspace"></main>
 
@@ -93,11 +97,11 @@
     </div>
   </div>
 
-  <script src="js/data.js?v=9"></script>
-  <script src="js/odds.js?v=9"></script>
-  <script src="js/extras.js?v=9"></script>
-  <script src="js/engine.js?v=9"></script>
-  <script src="js/app.js?v=9"></script>
+  <script src="js/data.js?v=10"></script>
+  <script src="js/odds.js?v=10"></script>
+  <script src="js/extras.js?v=10"></script>
+  <script src="js/engine.js?v=10"></script>
+  <script src="js/app.js?v=10"></script>
   <p class="site-foot">仅作盘口研究，不构成购买建议。走势图为示意，概率按竞彩即时赔率去水。</p>
 </body>
 </html>

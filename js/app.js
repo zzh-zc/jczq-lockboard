@@ -1,7 +1,12 @@
 (function () {
   const STORE = "jczq-cc-custom-v1";
   const TODAY = window.CC_ODDS ? CC_ODDS.todayIso() : "2026-10-21";
-  const state = { view: "jczq", selected: null, q: "", league: "全部", risk: "全部", date: TODAY, pane: "index", idxTab: "eu" };
+  const phoneMq = window.matchMedia("(max-width: 760px)");
+  const state = { view: "jczq", selected: null, q: "", league: "全部", risk: "全部", date: TODAY, pane: "index", idxTab: "eu", phonePane: "list" };
+
+  function onPhone() {
+    return phoneMq.matches;
+  }
 
   const $ = (id) => document.getElementById(id);
   const workspace = $("workspace");
@@ -137,7 +142,10 @@
           `).join("") : `<div class="empty">这一天还没有锁号。翻到相邻日期，或点右上角录入。</div>`}
         </div>
       </section>
-      <section class="panel">${current ? `<div class="detail-flow">${renderCenter(current, data)}</div>` : "<p>这一天没有赛事</p>"}</section>
+      <section class="panel">${current ? `
+        <button type="button" class="ghost phone-back" id="btnBackList">← 赛事列表</button>
+        <div class="detail-flow">${renderCenter(current, data)}</div>
+      ` : "<p>这一天没有赛事</p>"}</section>
       <aside class="panel">
         <h2>怎么买</h2>
         <div class="buy">${(data.buy || []).map((x) => `<span>${x}</span>`).join("")}</div>
@@ -151,21 +159,38 @@
         `).join("") || "<p class='kicker'>无</p>"}
       </aside>
     `;
-    workspace.className = "workspace layout" + (state.pane === "index" ? " layout-index" : "");
+    let phoneClass = "";
+    if (onPhone()) {
+      phoneClass = current && state.phonePane === "detail" ? " phone-detail" : " phone-list";
+    }
+    workspace.className = "workspace layout" + (state.pane === "index" ? " layout-index" : "") + phoneClass;
     $("q").oninput = (e) => { state.q = e.target.value; render(); };
     $("league").onchange = (e) => { state.league = e.target.value; render(); };
     $("risk").onchange = (e) => { state.risk = e.target.value; render(); };
     const jump = (n) => {
       state.date = CC_ODDS.addDays(state.date, n);
       state.selected = null;
+      state.phonePane = "list";
       render();
     };
     $("dayPrev").onclick = () => jump(-1);
     $("dayNext").onclick = () => jump(1);
-    $("dayToday").onclick = () => { state.date = TODAY; state.selected = null; render(); };
-    $("dayPick").onchange = (e) => { state.date = e.target.value; state.selected = null; render(); };
+    $("dayToday").onclick = () => { state.date = TODAY; state.selected = null; state.phonePane = "list"; render(); };
+    $("dayPick").onchange = (e) => { state.date = e.target.value; state.selected = null; state.phonePane = "list"; render(); };
+    const back = $("btnBackList");
+    if (back) {
+      back.onclick = () => {
+        state.phonePane = "list";
+        render();
+      };
+    }
     workspace.querySelectorAll("[data-id]").forEach((el) => {
-      el.onclick = () => { state.selected = el.getAttribute("data-id"); render(); };
+      el.onclick = () => {
+        state.selected = el.getAttribute("data-id");
+        if (onPhone()) state.phonePane = "detail";
+        render();
+        if (onPhone()) window.scrollTo(0, 0);
+      };
     });
     workspace.querySelectorAll("[data-pane]").forEach((el) => {
       el.onclick = () => { state.pane = el.getAttribute("data-pane"); render(); };
@@ -351,7 +376,7 @@
           </div>
         </div>
         <div class="note">${r.note}</div>
-        <table class="table">
+        <div class="table-wrap"><table class="table">
           <thead><tr><th>场</th><th>对阵</th><th>赛果</th><th>锁号</th><th></th><th>错在哪</th></tr></thead>
           <tbody>
             ${r.matches.map((m) => `
@@ -365,7 +390,7 @@
               </tr>
             `).join("")}
           </tbody>
-        </table>
+        </table></div>
         <h2 style="margin:16px 0 8px">带走的四条</h2>
         ${r.lessons.map((x) => `<div class="rule-card">${x}</div>`).join("")}
       </section>
@@ -407,6 +432,7 @@
       state.q = "";
       state.league = "全部";
       state.risk = "全部";
+      state.phonePane = "list";
       render();
     };
   });
@@ -476,6 +502,9 @@
     document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("on", b.dataset.view === state.view));
     render();
   };
+
+  if (phoneMq.addEventListener) phoneMq.addEventListener("change", render);
+  else phoneMq.addListener(render);
 
   topStats();
   render();
