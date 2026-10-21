@@ -346,6 +346,8 @@ label input, label select, label textarea {
 .intel-match {
   background: #141018; border: 1px solid #3a2428; border-radius: 12px; overflow: hidden;
 }
+.intel-match.is-locked { cursor: pointer; }
+.intel-match.is-locked .intel-cover { cursor: pointer; }
 .intel-cover {
   position: relative;
   min-height: 176px;

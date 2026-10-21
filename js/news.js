@@ -74,7 +74,6 @@
         cat: catOf(kind),
         tag: tagOf(kind),
         t: item.t || "",
-        source: item.source || "",
         title: item.title || "",
         summary: item.summary || "",
         team: team,

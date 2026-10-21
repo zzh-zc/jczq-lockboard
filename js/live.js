@@ -57,19 +57,31 @@
     return JSON.parse(text);
   }
 
+  function fromJcCache() {
+    const cache = global.CC_JC_CACHE;
+    if (!cache || !cache.matches || !cache.matches.length) return null;
+    return { matches: cache.matches.slice(), updatedAt: cache.updatedAt || "", n: n, fromCache: true };
+  }
+
   async function pull() {
-    const json = await loadJson(JC_SRC);
-    if (!json.success || !json.value) throw new Error("empty");
-    const matches = [];
-    (json.value.matchInfoList || []).forEach((day) => {
-      (day.subMatchList || []).forEach((row) => {
-        if (!row.had || !n(row.had.h) || !n(row.had.d) || !n(row.had.a)) return;
-        if (row.matchStatus && /Cancel|Paused/i.test(row.matchStatus)) return;
-        matches.push(mapJc(row));
+    try {
+      const json = await loadJson(JC_SRC);
+      if (!json.success || !json.value) throw new Error("empty");
+      const matches = [];
+      (json.value.matchInfoList || []).forEach((day) => {
+        (day.subMatchList || []).forEach((row) => {
+          if (!row.had || !n(row.had.h) || !n(row.had.d) || !n(row.had.a)) return;
+          if (row.matchStatus && /Cancel|Paused/i.test(row.matchStatus)) return;
+          matches.push(mapJc(row));
+        });
       });
-    });
-    if (!matches.length) throw new Error("no matches");
-    return { matches, updatedAt: json.value.lastUpdateTime || "", n: n };
+      if (!matches.length) throw new Error("no matches");
+      return { matches, updatedAt: json.value.lastUpdateTime || "", n: n };
+    } catch (err) {
+      const cache = fromJcCache();
+      if (cache) return cache;
+      throw err;
+    }
   }
 
   function mapSfcRow(row) {

@@ -513,7 +513,7 @@
         <div class="intel-body">
           <div class="intel-tag">${esc(item.tag)} · ${esc(item.team || "")}</div>
           <h4>${esc(item.title)}</h4>
-          <p class="intel-preview">${esc(body)}${item.source ? " · " + esc(item.source) : ""}</p>
+          ${body && body !== item.title ? `<p class="intel-preview">${esc(body)}</p>` : ""}
         </div>
         <span class="intel-time">${esc(item.t || "")}</span>
       </div>
@@ -529,7 +529,7 @@
     const rows = open ? CC_NEWS.feedOf(m, cat) : [];
     const asking = state.unlockId === id && !open;
     return `
-      <article class="intel-match">
+      <article class="intel-match ${open ? "is-open" : "is-locked"}" data-intel-card="${esc(id)}">
         <div class="intel-cover">
           <div class="intel-cover-h">${esc(m.league || "")} · ${esc(m.code || "")} · ${esc(m.kickoff || "")}</div>
           <div class="intel-vs">
@@ -538,7 +538,7 @@
             <div class="intel-side">${crest(m.away, pack.awayLogo, true)}<b>${esc(m.away)}</b></div>
           </div>
           <div class="intel-cover-foot">
-            <p>${open ? "已解锁 · 这场全部消息" : n + " 条内部消息 · 解锁看这场全部"}</p>
+            <p>${open ? "已解锁 · 这场全部消息" : n + " 条内部消息 · 点这张卡解锁"}</p>
             <button type="button" class="intel-lockbtn ${open ? "open" : ""}" data-intel-id="${esc(id)}" aria-label="${open ? "重新上锁" : "解锁这场"}">${lockSvg(open)}</button>
           </div>
           ${asking ? `
@@ -561,7 +561,7 @@
       <div class="intel-page" style="margin-top:12px">
         <div class="intel-head">
           <h2>内部消息</h2>
-          <p>一场一锁，解开看这场全部。内容底稿，不改灯。</p>
+          <p>点整张卡解锁，解开看这场全部。内容底稿，不改灯。</p>
         </div>
         ${renderIntelMatch(m, "全部")}
       </div>
@@ -580,7 +580,7 @@
         <div class="intel-page">
           <div class="intel-head">
             <h2>内部消息</h2>
-            <p>一场一锁 · 封面是两队对战 · 缓存 ${esc(at)} · 不改灯</p>
+            <p>一场一锁 · 点整张卡解锁 · 封面是两队对战 · 缓存 ${esc(at)} · 不改灯</p>
             <div class="date-nav">
               <button type="button" class="ghost" id="dayPrev">◀</button>
               <input type="date" id="dayPick" value="${state.date}" />
@@ -612,24 +612,29 @@
     workspace.querySelectorAll("[data-news-cat]").forEach((btn) => {
       btn.onclick = () => { state.newsCat = btn.getAttribute("data-news-cat"); state.unlockId = null; render(); };
     });
-    workspace.querySelectorAll("[data-intel-id]").forEach((btn) => {
-      btn.onclick = () => {
-        const id = btn.getAttribute("data-intel-id");
+    workspace.querySelectorAll("[data-intel-card]").forEach((card) => {
+      card.onclick = (e) => {
+        const id = card.getAttribute("data-intel-card");
+        if (e.target.closest("[data-unlock]")) return;
         if (window.CC_NEWS && CC_NEWS.isOpen(id)) {
+          if (!e.target.closest("[data-intel-id]")) return;
           CC_NEWS.lockMatch(id);
           state.unlockId = null;
           render();
           return;
         }
-        state.unlockId = state.unlockId === id ? null : id;
+        if (state.unlockId === id) return;
+        state.unlockId = id;
         render();
         const box = workspace.querySelector(`[data-unlock="${id}"] input`);
         if (box) box.focus();
       };
     });
     workspace.querySelectorAll("[data-unlock]").forEach((form) => {
+      form.onclick = (e) => e.stopPropagation();
       form.onsubmit = (e) => {
         e.preventDefault();
+        e.stopPropagation();
         const id = form.getAttribute("data-unlock");
         const pin = (new FormData(form).get("pin") || "").toString();
         if (window.CC_NEWS && CC_NEWS.unlockMatch(id, pin)) {
@@ -888,7 +893,27 @@
   if (window.CC_FORM) CC_FORM.attachAll();
   if (window.CC_NEWS) CC_NEWS.boot();
   if (window.CC_ENGINE) CC_ENGINE.attachAll();
-  if (window.CC_PRED && CC_PRED.explainAll) CC_PRED.explainAll();
+  try {
+    if (window.CC_PRED && window.CC_JC_CACHE && CC_JC_CACHE.matches && CC_JC_CACHE.matches.length) {
+      const locked = CC_PRED.apply(CC_JC_CACHE);
+      if (window.CC_BJDC_CACHE) {
+        const bd = {
+          updatedAt: CC_BJDC_CACHE.updatedAt,
+          live: false,
+          matches: (CC_BJDC_CACHE.matches || []).map((m) => Object.assign({}, m, {
+            league: window.CC_LIVE ? CC_LIVE.shortLeague(m.league) : m.league,
+          })),
+        };
+        CC_PRED.applyBeidan(bd, locked);
+      }
+      if (window.CC_SFC_CACHE) CC_PRED.applySfc(CC_SFC_CACHE, locked);
+      CC_PRED.finish();
+    } else if (window.CC_PRED && CC_PRED.explainAll) {
+      CC_PRED.explainAll();
+    }
+  } catch (err) {
+    if (window.CC_PRED && CC_PRED.explainAll) CC_PRED.explainAll();
+  }
   topStats();
   render();
   refreshData();
