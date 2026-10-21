@@ -62,6 +62,9 @@ h1, h2, h3 { margin: 0; font-weight: 650; }
 .stat b { display: block; font-size: 16px; }
 .stat span { color: var(--muted); font-size: 12px; }
 .top-actions { display: flex; gap: 8px; }
+.refresh-clock { display: flex; align-items: center; gap: 8px; }
+.refresh-clock .stat { min-width: 128px; }
+.refresh-clock b { font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
 .ghost, .primary, .icon {
   border: 1px solid var(--line); background: var(--panel-2);
   border-radius: 8px; padding: 8px 12px; min-height: 40px;
@@ -302,6 +305,7 @@ label input, label select, label textarea {
     order: 3; flex: 1 1 100%; flex-wrap: nowrap; overflow-x: auto;
     -webkit-overflow-scrolling: touch; scrollbar-width: none;
   }
+  .refresh-clock { order: 4; flex: 1 1 100%; }
   .top-stats::-webkit-scrollbar { display: none; }
   .stat { min-width: 132px; flex: 0 0 auto; padding: 6px 10px; }
   .stat b { font-size: 14px; }

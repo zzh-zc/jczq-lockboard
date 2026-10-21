@@ -506,6 +506,72 @@
   if (phoneMq.addEventListener) phoneMq.addEventListener("change", render);
   else phoneMq.addListener(render);
 
+  const HOUR_MS = 60 * 60 * 1000;
+  const clock = { nextAt: Date.now() + HOUR_MS, busy: false };
+
+  function pad2(n) {
+    return String(n).padStart(2, "0");
+  }
+
+  function clockLabel(ms) {
+    const left = Math.max(0, ms);
+    return `${pad2(Math.floor(left / 60000))}:${pad2(Math.floor((left % 60000) / 1000))}`;
+  }
+
+  function loadScript(path) {
+    return new Promise((resolve, reject) => {
+      document.querySelectorAll(`script[src*="${path}"]`).forEach((node) => node.remove());
+      const s = document.createElement("script");
+      s.src = `${path}?t=${Date.now()}`;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error(path));
+      document.body.appendChild(s);
+    });
+  }
+
+  function tickClock() {
+    const count = $("refreshCount");
+    if (count) count.textContent = clockLabel(clock.nextAt - Date.now());
+    if (!clock.busy && Date.now() >= clock.nextAt) refreshData();
+  }
+
+  async function refreshData() {
+    if (clock.busy) return;
+    const modal = $("modal");
+    if (modal && !modal.hidden) {
+      clock.nextAt = Date.now() + 15000;
+      return;
+    }
+    clock.busy = true;
+    const hint = $("refreshHint");
+    if (hint) hint.textContent = "正在拉最新锁号…";
+    try {
+      await loadScript("js/data.js");
+      await loadScript("js/odds.js");
+      await loadScript("js/extras.js");
+      await loadScript("js/engine.js");
+      topStats();
+      render();
+      if (hint) hint.textContent = `已更新 ${new Date().toTimeString().slice(0, 5)}`;
+    } catch {
+      if (hint) hint.textContent = "刷新失败，下小时再试";
+    } finally {
+      clock.busy = false;
+      clock.nextAt = Date.now() + HOUR_MS;
+      tickClock();
+    }
+  }
+
+  $("btnRefresh").onclick = () => {
+    clock.nextAt = Date.now();
+    refreshData();
+  };
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && Date.now() >= clock.nextAt) refreshData();
+  });
+  setInterval(tickClock, 1000);
+  tickClock();
+
   topStats();
   render();
 })();

@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css?v=13" />
+  <link rel="stylesheet" href="css/app.css?v=14" />
 </head>
 <body>
   <div class="chrome">
@@ -24,6 +24,13 @@
         </div>
       </div>
       <div class="top-stats" id="topStats"></div>
+      <div class="refresh-clock" id="refreshClock">
+        <div class="stat">
+          <b id="refreshCount">60:00</b>
+          <span id="refreshHint">每小时自动刷新</span>
+        </div>
+        <button type="button" class="ghost" id="btnRefresh">立即刷新</button>
+      </div>
       <div class="top-actions">
         <button type="button" class="ghost" id="btnCopy">复制锁号</button>
         <button type="button" class="ghost" id="btnAdd">+ 录入</button>
@@ -98,15 +105,15 @@
     </div>
   </div>
 
-  <script src="js/data.js?v=13"></script>
-  <script src="js/odds.js?v=13"></script>
-  <script src="js/extras.js?v=13"></script>
-  <script src="js/engine.js?v=13"></script>
-  <script src="js/app.js?v=13"></script>
-  <p class="site-foot">版 10-21c · 手机点一场看详情。仅作盘口研究，不构成购买建议。</p>
+  <script src="js/data.js?v=14"></script>
+  <script src="js/odds.js?v=14"></script>
+  <script src="js/extras.js?v=14"></script>
+  <script src="js/engine.js?v=14"></script>
+  <script src="js/app.js?v=14"></script>
+  <p class="site-foot">版 10-21d · 每小时自动拉一次锁号。仅作盘口研究，不构成购买建议。</p>
   <script>
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("./sw.js?v=13");
+      navigator.serviceWorker.register("./sw.js?v=14");
     }
   </script>
 </body>
