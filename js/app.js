@@ -2,7 +2,7 @@
   const STORE = "jczq-cc-custom-v1";
   const TODAY = window.CC_ODDS ? CC_ODDS.todayIso() : "2026-10-21";
   const phoneMq = window.matchMedia("(max-width: 760px)");
-  const state = { view: "jczq", selected: null, q: "", league: "全部", risk: "全部", date: TODAY, pane: "index", idxTab: "eu", phonePane: "list" };
+  const state = { view: "jczq", selected: null, q: "", league: "全部", risk: "全部", date: TODAY, pane: "index", idxTab: "eu", phonePane: "list", newsCat: "全部", unlockId: null };
 
   function onPhone() {
     return phoneMq.matches;
@@ -248,8 +248,8 @@
     const pack = m.intel || (window.CC_NEWS ? CC_NEWS.lookup(m) : null);
     const n = window.CC_NEWS ? CC_NEWS.countOf(pack) : 0;
     if (!n) return "";
-    if (window.CC_NEWS && CC_NEWS.unlocked()) return `<span class="chip intel">消息 ${n}</span>`;
-    return '<span class="chip intel">内部</span>';
+    const locked = window.CC_NEWS ? CC_NEWS.lockedCount(pack) : n;
+    return `<span class="chip intel">${locked ? "内部 " + locked : "消息 " + n}</span>`;
   }
 
   function esc(s) {
@@ -483,107 +483,148 @@
     `;
   }
 
-  function intelItems(list, open) {
-    const rows = list || [];
-    if (!rows.length) return `<p class="kicker">${open ? "暂无公开消息" : "████████"}</p>`;
-    return rows.map((x) => `
-      <div class="intel-item">
-        <div class="row">
-          <span class="chip kind-${esc(x.kind || "新闻")}">${esc(x.kind || "新闻")}</span>
-          <span class="kicker">${esc(x.t || "")} ${esc(x.source || "")}</span>
-        </div>
-        <b>${open ? esc(x.title) : "██████████████"}</b>
-        ${open && x.summary ? `<p>${esc(x.summary)}</p>` : (open ? "" : "<p>████████</p>")}
-      </div>
-    `).join("");
+  function cnDate(iso) {
+    const p = String(iso || "").split("-");
+    if (p.length < 3) return iso || "";
+    return Number(p[0]) + "年" + Number(p[1]) + "月" + Number(p[2]) + "日";
   }
 
-  function intelUnlockForm() {
+  function lockSvg(open) {
+    if (open) {
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17 8h-1V7a4 4 0 0 0-7.8-1.2l1.6.8A2 2 0 0 1 14 7v1H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2z"/></svg>';
+    }
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17 8h-1V6a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zm-7-2a2 2 0 1 1 4 0v2h-4V6z"/></svg>';
+  }
+
+  function teaser(item, open) {
+    const full = String(item.summary || item.title || "");
+    if (open) return full;
+    return full.slice(0, 22) + (full.length > 22 ? "..." : "");
+  }
+
+  function renderIntelRow(item) {
+    const open = window.CC_NEWS && CC_NEWS.isOpen(item.id);
+    const asking = state.unlockId === item.id && !open;
+    const ava = String(item.team || "内").slice(0, 1);
     return `
-      <form class="intel-form" id="intelForm">
-        <input name="pin" type="password" autocomplete="off" placeholder="输入口令" />
-        <button type="submit" class="primary">解锁</button>
-        <span class="intel-err" id="intelErr"></span>
-      </form>
+      <div class="intel-row ${open ? "" : "locked"}">
+        <span class="intel-ava ${item.side === "away" ? "away" : ""}">${esc(ava)}</span>
+        <div class="intel-body">
+          <div class="intel-tag">${esc(item.tag)}</div>
+          <h4>${esc(item.title)}</h4>
+          <p class="intel-preview">${esc(teaser(item, open))}${open && item.source ? " · " + esc(item.source) : ""}</p>
+          ${asking ? `
+            <form class="intel-unlock" data-unlock="${esc(item.id)}">
+              <input name="pin" type="password" autocomplete="off" placeholder="这条的口令" />
+              <button type="submit" class="primary">解锁这条</button>
+              <span class="intel-err"></span>
+            </form>
+          ` : ""}
+        </div>
+        <span class="intel-time">${esc(item.t || "")}</span>
+        <button type="button" class="intel-lockbtn ${open ? "open" : ""}" data-intel-id="${esc(item.id)}" aria-label="${open ? "已解锁" : "解锁这条"}">${lockSvg(open)}</button>
+      </div>
     `;
   }
 
-  function renderIntelCard(m, open, withForm) {
-    const pack = m.intel || (window.CC_NEWS ? CC_NEWS.lookup(m) : null);
-    const n = window.CC_NEWS ? CC_NEWS.countOf(pack) : 0;
-    const hs = pack ? pack.homeNews : [];
-    const as = pack ? pack.awayNews : [];
-    const gateForm = withForm ? intelUnlockForm() : "<p>到顶部「内部消息」输入口令</p>";
+  function renderIntelMatch(m, cat) {
+    const rows = window.CC_NEWS ? CC_NEWS.feedOf(m, cat) : [];
+    if (!rows.length) return "";
     return `
-      <div class="intel-card">
-        <div class="fx-assist-head">${esc(m.code || "")}　${esc(m.home)} vs ${esc(m.away)}　${n} 条</div>
-        <div class="intel-cols ${open ? "" : "intel-blur"}">
-          <div><h4>${esc(m.home)}</h4>${intelItems(hs, open)}</div>
-          <div><h4>${esc(m.away)}</h4>${intelItems(as, open)}</div>
-        </div>
-        ${open ? "" : `<div class="intel-gate"><div><b>内部消息 · 未解锁</b><p>有 ${n} 条球队最新消息，解锁后可见。不改灯。</p>${gateForm}</div></div>`}
-      </div>
+      <article class="intel-match">
+        <div class="intel-match-h">${esc(m.league || "")} · ${esc(m.code || "")}<br><b>${esc(m.home)} vs ${esc(m.away)}</b></div>
+        ${rows.map(renderIntelRow).join("")}
+      </article>
     `;
   }
 
   function renderIntel(m) {
     const pack = m.intel || (window.CC_NEWS ? CC_NEWS.lookup(m) : null);
-    if (!pack || !window.CC_NEWS) return "";
-    return renderIntelCard(m, CC_NEWS.unlocked(), true);
+    if (!pack || !window.CC_NEWS || !CC_NEWS.countOf(pack)) return "";
+    return `
+      <div class="intel-page" style="margin-top:12px">
+        <div class="intel-head">
+          <h2>内部消息</h2>
+          <p>每条单独解锁。内容底稿，不改灯。</p>
+        </div>
+        ${renderIntelMatch(m, "全部")}
+      </div>
+    `;
   }
 
   function renderNews() {
-    const open = window.CC_NEWS && CC_NEWS.unlocked();
+    const cats = (window.CC_NEWS && CC_NEWS.CATS) || ["全部"];
     const data = CC_DATA.jczq || { matches: [] };
     const day = (data.matches || []).filter((m) => (m.date || "") === state.date);
     const at = (window.CC_NEWS_CACHE && CC_NEWS_CACHE.at) || "";
+    const cards = day.map((m) => renderIntelMatch(m, state.newsCat)).filter(Boolean).join("");
     workspace.className = "workspace";
     workspace.innerHTML = `
       <section class="panel">
-        <div class="intel-head">
-          <h2>内部消息</h2>
-          <p>每队最新消息 · 缓存 ${esc(at)} · 内容底稿，不改灯</p>
-          <div class="date-nav">
-            <button type="button" class="ghost" id="dayPrev">◀</button>
-            <input type="date" id="dayPick" value="${state.date}" />
-            <button type="button" class="ghost" id="dayNext">▶</button>
-            <button type="button" class="ghost ${state.date === TODAY ? "on" : ""}" id="dayToday">今天</button>
+        <div class="intel-page">
+          <div class="intel-head">
+            <h2>内部消息</h2>
+            <p>每条单独解锁 · 缓存 ${esc(at)} · 内容底稿，不改灯</p>
+            <div class="date-nav">
+              <button type="button" class="ghost" id="dayPrev">◀</button>
+              <input type="date" id="dayPick" value="${state.date}" />
+              <button type="button" class="ghost" id="dayNext">▶</button>
+              <button type="button" class="ghost ${state.date === TODAY ? "on" : ""}" id="dayToday">今天</button>
+            </div>
+            <div class="intel-cats">
+              ${cats.map((c) => `<button type="button" class="${c === state.newsCat ? "on" : ""}" data-news-cat="${c}">${c}</button>`).join("")}
+            </div>
           </div>
-          ${open ? `<button type="button" class="ghost" id="intelLock">重新上锁</button>` : intelUnlockForm()}
-        </div>
-        <p class="kicker">${state.date} · ${dateLabel()} · ${day.length} 场</p>
-        <div class="intel-board">
-          ${day.length ? day.map((m) => renderIntelCard(m, open, false)).join("") : "<p class='kicker'>这一天还没有球队消息。</p>"}
+          <div class="intel-day">${esc(cnDate(state.date))}</div>
+          ${cards || "<p class='kicker'>这一类这一天没有消息。</p>"}
         </div>
       </section>
     `;
     const jump = (n) => {
       state.date = CC_ODDS.addDays(state.date, n);
+      state.unlockId = null;
       render();
     };
     $("dayPrev").onclick = () => jump(-1);
     $("dayNext").onclick = () => jump(1);
-    $("dayToday").onclick = () => { state.date = TODAY; render(); };
-    $("dayPick").onchange = (e) => { state.date = e.target.value; render(); };
+    $("dayToday").onclick = () => { state.date = TODAY; state.unlockId = null; render(); };
+    $("dayPick").onchange = (e) => { state.date = e.target.value; state.unlockId = null; render(); };
     bindIntel();
   }
 
   function bindIntel() {
-    const form = $("intelForm");
-    if (form) {
-      form.onsubmit = (e) => {
-        e.preventDefault();
-        const pin = (new FormData(form).get("pin") || "").toString();
-        if (window.CC_NEWS && CC_NEWS.unlock(pin)) {
+    workspace.querySelectorAll("[data-news-cat]").forEach((btn) => {
+      btn.onclick = () => { state.newsCat = btn.getAttribute("data-news-cat"); state.unlockId = null; render(); };
+    });
+    workspace.querySelectorAll("[data-intel-id]").forEach((btn) => {
+      btn.onclick = () => {
+        const id = btn.getAttribute("data-intel-id");
+        if (window.CC_NEWS && CC_NEWS.isOpen(id)) {
+          CC_NEWS.lockItem(id);
+          state.unlockId = null;
           render();
           return;
         }
-        const err = $("intelErr");
+        state.unlockId = state.unlockId === id ? null : id;
+        render();
+        const box = workspace.querySelector(`[data-unlock="${id}"] input`);
+        if (box) box.focus();
+      };
+    });
+    workspace.querySelectorAll("[data-unlock]").forEach((form) => {
+      form.onsubmit = (e) => {
+        e.preventDefault();
+        const id = form.getAttribute("data-unlock");
+        const pin = (new FormData(form).get("pin") || "").toString();
+        if (window.CC_NEWS && CC_NEWS.unlockItem(id, pin)) {
+          state.unlockId = null;
+          render();
+          return;
+        }
+        const err = form.querySelector(".intel-err");
         if (err) err.textContent = "口令不对";
       };
-    }
-    const btn = $("intelLock");
-    if (btn) btn.onclick = () => { if (window.CC_NEWS) CC_NEWS.lock(); render(); };
+    });
   }
 
   function renderReview() {

@@ -1,28 +1,8 @@
 (function (global) {
-  const STORE = "jczq-cc-intel-v1";
+  const STORE = "jczq-cc-intel-items-v1";
   const PIN_B64 = "c3VvaGFv";
   const SKIP = /U-18|官方会员|MY TOKYO|发售通知|抽奖|商业战略|中国足球史上|超话|重锤|站前广场|精酿啤酒/;
-  const RANK = { 伤停: 0, 情报: 1, 外媒: 2, 转会: 3, 新闻: 4, 近况: 5 };
-
-  function unlocked() {
-    try { return localStorage.getItem(STORE) === "1"; } catch { return false; }
-  }
-
-  function persist(on) {
-    try {
-      if (on) localStorage.setItem(STORE, "1");
-      else localStorage.removeItem(STORE);
-    } catch { /* ignore */ }
-  }
-
-  function wantPin() {
-    try {
-      const q = new URLSearchParams(location.search);
-      return (q.get("k") || q.get("intel") || "").trim();
-    } catch {
-      return "";
-    }
-  }
+  const CATS = ["全部", "伤病", "轮换", "阵容", "新闻"];
 
   function pinOk(raw) {
     const pin = String(raw || "").trim().toLowerCase();
@@ -31,14 +11,37 @@
     return pin && pin === expect;
   }
 
-  function unlock(raw) {
-    if (!pinOk(raw)) return false;
-    persist(true);
+  function opened() {
+    try {
+      const list = JSON.parse(localStorage.getItem(STORE) || "[]");
+      return Array.isArray(list) ? list : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveOpened(list) {
+    try { localStorage.setItem(STORE, JSON.stringify(list.slice(0, 400))); } catch { /* ignore */ }
+  }
+
+  function isOpen(id) {
+    return opened().indexOf(id) >= 0;
+  }
+
+  function unlockItem(id, pin) {
+    if (!id || !pinOk(pin)) return false;
+    const list = opened();
+    if (list.indexOf(id) < 0) list.push(id);
+    saveOpened(list);
     return true;
   }
 
-  function lock() {
-    persist(false);
+  function lockItem(id) {
+    saveOpened(opened().filter((x) => x !== id));
+  }
+
+  function lockAll() {
+    saveOpened([]);
   }
 
   function keep(item) {
@@ -46,8 +49,46 @@
     return !SKIP.test(blob);
   }
 
-  function tidy(list) {
-    return (list || []).filter(keep).slice().sort((a, b) => (RANK[a.kind] != null ? RANK[a.kind] : 9) - (RANK[b.kind] != null ? RANK[b.kind] : 9));
+  function hash(s) {
+    let h = 5381;
+    const t = String(s || "");
+    for (let i = 0; i < t.length; i++) h = ((h << 5) + h) + t.charCodeAt(i);
+    return (h >>> 0).toString(36);
+  }
+
+  function catOf(kind) {
+    if (kind === "伤停") return "伤病";
+    if (kind === "转会") return "轮换";
+    if (kind === "情报" || kind === "近况") return "阵容";
+    return "新闻";
+  }
+
+  function tagOf(kind) {
+    if (kind === "伤停") return "伤病";
+    if (kind === "转会") return "轮换";
+    if (kind === "情报") return "内部情报";
+    if (kind === "近况") return "阵容";
+    if (kind === "外媒") return "新闻";
+    return "新闻";
+  }
+
+  function stamp(raw, side, team, slot) {
+    return (raw || []).filter(keep).map((item) => {
+      const kind = item.kind || "新闻";
+      return {
+        id: hash([slot, side, kind, item.title, item.t].join("|")),
+        kind: kind,
+        cat: catOf(kind),
+        tag: tagOf(kind),
+        t: item.t || "",
+        source: item.source || "",
+        title: item.title || "",
+        summary: item.summary || "",
+        team: team,
+        side: side,
+        slot: slot,
+      };
+    });
   }
 
   function lookup(m) {
@@ -55,19 +96,33 @@
     if (!cache || !m) return null;
     const raw = cache[m.slot] || cache[(m.date || "") + "|" + (m.home || "") + "|" + (m.away || "")];
     if (!raw) return null;
+    const slot = raw.slot || m.slot || "";
     return {
-      slot: raw.slot,
+      slot: slot,
       date: raw.date,
       home: raw.home,
       away: raw.away,
-      homeNews: tidy(raw.homeNews),
-      awayNews: tidy(raw.awayNews),
+      homeNews: stamp(raw.homeNews, "home", raw.home, slot),
+      awayNews: stamp(raw.awayNews, "away", raw.away, slot),
     };
+  }
+
+  function feedOf(m, cat) {
+    const pack = (m && m.intel) || lookup(m);
+    if (!pack) return [];
+    const rows = [].concat(pack.homeNews || [], pack.awayNews || []);
+    if (!cat || cat === "全部") return rows;
+    return rows.filter((x) => x.cat === cat);
   }
 
   function countOf(pack) {
     if (!pack) return 0;
     return ((pack.homeNews || []).length) + ((pack.awayNews || []).length);
+  }
+
+  function lockedCount(pack) {
+    const rows = [].concat((pack && pack.homeNews) || [], (pack && pack.awayNews) || []);
+    return rows.filter((x) => !isOpen(x.id)).length;
   }
 
   function attachAll() {
@@ -81,10 +136,11 @@
   }
 
   function boot() {
-    const auto = wantPin();
-    if (auto && pinOk(auto)) persist(true);
     attachAll();
   }
 
-  global.CC_NEWS = { unlocked, unlock, lock, lookup, countOf, attachAll, boot, pinOk };
+  global.CC_NEWS = {
+    CATS, pinOk, isOpen, unlockItem, lockItem, lockAll,
+    lookup, feedOf, countOf, lockedCount, attachAll, boot,
+  };
 })(window);
