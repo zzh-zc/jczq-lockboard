@@ -155,23 +155,25 @@
   }
 
   function ttgAligned(ttg, scores) {
-    const tots = [];
+    const fromScores = [];
     (scores || []).forEach((s) => {
       const p = String(s).split("-");
       if (p.length < 2) return;
       const tot = Number(p[0]) + Number(p[1]);
       const lab = tot >= 7 ? "7+" : tot + "球";
-      if (tots.indexOf(lab) < 0) tots.push(lab);
+      if (fromScores.indexOf(lab) < 0) fromScores.push(lab);
     });
-    if (tots.length >= 2) return tots.slice(0, 2);
-    const base = tots[0] ? parseInt(tots[0], 10) : 1;
-    const fb = [base, base + 1, Math.max(0, base - 1)].map((i) => (i >= 7 ? "7+" : i + "球"));
-    const rows = fb.map((lab) => {
-      const i = lab === "7+" ? 7 : parseInt(lab, 10);
-      return { label: lab, odds: n((ttg || {})["s" + i]) || 99 };
-    });
+    const rows = [];
+    for (let i = 0; i <= 7; i += 1) {
+      const o = n((ttg || {})["s" + i]);
+      if (!o || o < 1.01) continue;
+      rows.push({ label: i >= 7 ? "7+" : i + "球", odds: o, i: i });
+    }
     rows.sort((a, b) => a.odds - b.odds);
-    return pad2(tots, rows.map((r) => r.label));
+    if (!rows.length) return pad2(fromScores, ["2球", "3球"]);
+    const peak = rows[0].i;
+    const near = rows.filter((r) => Math.abs(r.i - peak) <= 1).map((r) => r.label);
+    return pad2(fromScores, near.concat(rows.map((r) => r.label)));
   }
 
   function hafuFt(lab) {
@@ -221,7 +223,7 @@
     locked.htScores = locked.hafuPicks;
     locked.htOu = locked.hafuPicks;
     locked.handicap = line ? (line > 0 ? "+" + line : String(line)) : locked.handicap || "";
-    locked.scriptNote = "比分看进球数盘峰值 " + ctx.peak + " 球、让球 " + (locked.handicap || "0") + "、欧赔热度，小球大球都按盘走。";
+    locked.scriptNote = "胜平负跟欧赔去水；让球跟亚盘 " + (locked.handicap || "0") + "；比分和进球跟进球数盘峰值 " + ctx.peak + " 球；半全场跟半全场赔率。全是当场盘口，不套底稿。";
   }
 
   function realign(list) {
@@ -300,9 +302,11 @@
   function ticksOf(o, ah, books) {
     const open = books && books.avgOpen ? books.avgOpen : o;
     const now = books && books.avgNow ? books.avgNow : o;
+    const ahOpen = { home: open.kh || 1, away: open.ka || 1 };
+    const ahNow = { home: now.kh || 1, away: now.ka || 1 };
     return [
-      { t: "初盘", h: open.h, d: open.d, a: open.a, ah: { home: ah === "home" ? 0.90 : 1.00, away: ah === "away" ? 0.90 : 1.00 }, ou: { over: 1.92, under: 1.92 }, vol: 8 },
-      { t: "即时", h: now.h, d: now.d, a: now.a, ah: { home: ah === "home" ? 0.86 : 1.04, away: ah === "away" ? 0.86 : 1.04 }, ou: { over: 1.90, under: 1.90 }, vol: 12 },
+      { t: "初盘", h: open.h, d: open.d, a: open.a, ah: ahOpen, ou: { over: open.h, under: open.a }, vol: 8 },
+      { t: "即时", h: now.h, d: now.d, a: now.a, ah: ahNow, ou: { over: now.h, under: now.a }, vol: 12 },
     ];
   }
 

@@ -430,26 +430,13 @@
       global.CC_DATA.jczq.matches = PAST_JC.concat(global.CC_DATA.jczq.matches);
       global.CC_DATA._pastMerged = true;
     }
-    const packs = { jczq: JC, beidan: BD, r14: {}, r9: {} };
     const slateDate = { jczq: "2026-10-21", beidan: "2026-10-21", r14: "2026-10-21", r9: "2026-10-21" };
     ["jczq", "beidan", "r14", "r9"].forEach((key) => {
-      const pack = packs[key] || {};
       if (!global.CC_DATA[key] || !global.CC_DATA[key].matches) return;
       (global.CC_DATA[key].matches || []).forEach((m) => {
         if (key === "r14" && m.source !== "live") m.date = Number(m.code) <= 7 ? "2026-10-20" : "2026-10-22";
-        const extra = m.source === "live" || m.date === "2026-10-20" ? {} : Object.assign({}, pack[m.code] || {});
-        delete extra.ftScores;
-        delete extra.htScores;
-        delete extra.ftOu;
-        delete extra.htOu;
-        delete extra.scriptNote;
-        const baked = m.source === "live" ? {
-          market: m.market, summary: m.summary,
-          ftOu: m.ftOu, ftScores: m.ftScores, htScores: m.htScores, htOu: m.htOu,
-          hadPicks: m.hadPicks, hhadPicks: m.hhadPicks, ttgPicks: m.ttgPicks, hafuPicks: m.hafuPicks,
-          scriptNote: m.scriptNote,
-        } : {};
-        Object.assign(m, defaultExtras(m), extra, baked);
+        const live = m.source === "live" || m._mk;
+        if (!live && !m.result) Object.assign(m, defaultExtras(m));
         delete m.agents;
         delete m.tally;
         delete m.iw;
