@@ -598,6 +598,7 @@
     if (global.CC_EXTRAS) global.CC_EXTRAS.attach();
     else if (global.CC_ENGINE) global.CC_ENGINE.attachAll();
     if (global.CC_FORM) CC_FORM.attachAll();
+    if (global.CC_NEWS) CC_NEWS.attachAll();
     if (global.CC_ENGINE) CC_ENGINE.attachAll();
     explainAll();
   }

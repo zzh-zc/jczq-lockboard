@@ -76,7 +76,7 @@
   }
 
   function jumpDateForView() {
-    const data = CC_DATA[state.view];
+    const data = state.view === "news" ? CC_DATA.jczq : CC_DATA[state.view];
     if (!data || !data.matches) return;
     if (data.matches.some((m) => m.date === state.date)) return;
     const dates = [...new Set(data.matches.map((m) => m.date).filter(Boolean))].sort();
@@ -153,6 +153,7 @@
                 ${chips(m.pick)}
                 ${envChip(m)}
                 ${injChip(m)}
+                ${newsChip(m)}
               </div>
               <div class="script-line fx-mini">
                 ${(m.hadPicks || showPick(m.pick).split("/").filter(Boolean)).join(" ")}
@@ -241,6 +242,20 @@
     const n = ((pack.homeSide && pack.homeSide.injuries) || []).length + ((pack.awaySide && pack.awaySide.injuries) || []).length;
     if (!n) return '<span class="chip">无伤停</span>';
     return `<span class="chip cold">伤停 ${n}</span>`;
+  }
+
+  function newsChip(m) {
+    const pack = m.intel || (window.CC_NEWS ? CC_NEWS.lookup(m) : null);
+    const n = window.CC_NEWS ? CC_NEWS.countOf(pack) : 0;
+    if (!n) return "";
+    if (window.CC_NEWS && CC_NEWS.unlocked()) return `<span class="chip intel">消息 ${n}</span>`;
+    return '<span class="chip intel">内部</span>';
+  }
+
+  function esc(s) {
+    return String(s || "").replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;",
+    }[c]));
   }
 
   function gateChip(m) {
@@ -441,6 +456,7 @@
         </div>
       </div>
       ${renderScout(m)}
+      ${renderIntel(m)}
       ${renderScripts(m)}
     `;
   }
@@ -462,8 +478,112 @@
       <div class="note">${m.action ? "动作 " + m.action + " · 倾向 " + showPick(m.pick) : (m.summary || "")}</div>
       ${unpriced(m)}
       ${renderScout(m)}
+      ${renderIntel(m)}
       ${renderScripts(m)}
     `;
+  }
+
+  function intelItems(list, open) {
+    const rows = list || [];
+    if (!rows.length) return `<p class="kicker">${open ? "暂无公开消息" : "████████"}</p>`;
+    return rows.map((x) => `
+      <div class="intel-item">
+        <div class="row">
+          <span class="chip kind-${esc(x.kind || "新闻")}">${esc(x.kind || "新闻")}</span>
+          <span class="kicker">${esc(x.t || "")} ${esc(x.source || "")}</span>
+        </div>
+        <b>${open ? esc(x.title) : "██████████████"}</b>
+        ${open && x.summary ? `<p>${esc(x.summary)}</p>` : (open ? "" : "<p>████████</p>")}
+      </div>
+    `).join("");
+  }
+
+  function intelUnlockForm() {
+    return `
+      <form class="intel-form" id="intelForm">
+        <input name="pin" type="password" autocomplete="off" placeholder="输入口令" />
+        <button type="submit" class="primary">解锁</button>
+        <span class="intel-err" id="intelErr"></span>
+      </form>
+    `;
+  }
+
+  function renderIntelCard(m, open, withForm) {
+    const pack = m.intel || (window.CC_NEWS ? CC_NEWS.lookup(m) : null);
+    const n = window.CC_NEWS ? CC_NEWS.countOf(pack) : 0;
+    const hs = pack ? pack.homeNews : [];
+    const as = pack ? pack.awayNews : [];
+    const gateForm = withForm ? intelUnlockForm() : "<p>到顶部「内部消息」输入口令</p>";
+    return `
+      <div class="intel-card">
+        <div class="fx-assist-head">${esc(m.code || "")}　${esc(m.home)} vs ${esc(m.away)}　${n} 条</div>
+        <div class="intel-cols ${open ? "" : "intel-blur"}">
+          <div><h4>${esc(m.home)}</h4>${intelItems(hs, open)}</div>
+          <div><h4>${esc(m.away)}</h4>${intelItems(as, open)}</div>
+        </div>
+        ${open ? "" : `<div class="intel-gate"><div><b>内部消息 · 未解锁</b><p>有 ${n} 条球队最新消息，解锁后可见。不改灯。</p>${gateForm}</div></div>`}
+      </div>
+    `;
+  }
+
+  function renderIntel(m) {
+    const pack = m.intel || (window.CC_NEWS ? CC_NEWS.lookup(m) : null);
+    if (!pack || !window.CC_NEWS) return "";
+    return renderIntelCard(m, CC_NEWS.unlocked(), true);
+  }
+
+  function renderNews() {
+    const open = window.CC_NEWS && CC_NEWS.unlocked();
+    const data = CC_DATA.jczq || { matches: [] };
+    const day = (data.matches || []).filter((m) => (m.date || "") === state.date);
+    const at = (window.CC_NEWS_CACHE && CC_NEWS_CACHE.at) || "";
+    workspace.className = "workspace";
+    workspace.innerHTML = `
+      <section class="panel">
+        <div class="intel-head">
+          <h2>内部消息</h2>
+          <p>每队最新消息 · 缓存 ${esc(at)} · 内容底稿，不改灯</p>
+          <div class="date-nav">
+            <button type="button" class="ghost" id="dayPrev">◀</button>
+            <input type="date" id="dayPick" value="${state.date}" />
+            <button type="button" class="ghost" id="dayNext">▶</button>
+            <button type="button" class="ghost ${state.date === TODAY ? "on" : ""}" id="dayToday">今天</button>
+          </div>
+          ${open ? `<button type="button" class="ghost" id="intelLock">重新上锁</button>` : intelUnlockForm()}
+        </div>
+        <p class="kicker">${state.date} · ${dateLabel()} · ${day.length} 场</p>
+        <div class="intel-board">
+          ${day.length ? day.map((m) => renderIntelCard(m, open, false)).join("") : "<p class='kicker'>这一天还没有球队消息。</p>"}
+        </div>
+      </section>
+    `;
+    const jump = (n) => {
+      state.date = CC_ODDS.addDays(state.date, n);
+      render();
+    };
+    $("dayPrev").onclick = () => jump(-1);
+    $("dayNext").onclick = () => jump(1);
+    $("dayToday").onclick = () => { state.date = TODAY; render(); };
+    $("dayPick").onchange = (e) => { state.date = e.target.value; render(); };
+    bindIntel();
+  }
+
+  function bindIntel() {
+    const form = $("intelForm");
+    if (form) {
+      form.onsubmit = (e) => {
+        e.preventDefault();
+        const pin = (new FormData(form).get("pin") || "").toString();
+        if (window.CC_NEWS && CC_NEWS.unlock(pin)) {
+          render();
+          return;
+        }
+        const err = $("intelErr");
+        if (err) err.textContent = "口令不对";
+      };
+    }
+    const btn = $("intelLock");
+    if (btn) btn.onclick = () => { if (window.CC_NEWS) CC_NEWS.lock(); render(); };
   }
 
   function renderReview() {
@@ -510,7 +630,9 @@
   function render() {
     if (state.view === "review") return renderReview();
     if (state.view === "rules") return renderRules();
+    if (state.view === "news") return renderNews();
     renderSlate();
+    bindIntel();
   }
 
   function lockText() {
@@ -707,6 +829,7 @@
   tickClock();
 
   if (window.CC_FORM) CC_FORM.attachAll();
+  if (window.CC_NEWS) CC_NEWS.boot();
   if (window.CC_ENGINE) CC_ENGINE.attachAll();
   if (window.CC_PRED && CC_PRED.explainAll) CC_PRED.explainAll();
   topStats();
