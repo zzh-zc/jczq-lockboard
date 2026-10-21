@@ -546,15 +546,29 @@
     const hint = $("refreshHint");
     if (hint) hint.textContent = "正在拉最新锁号…";
     try {
-      await loadScript("js/data.js");
-      await loadScript("js/odds.js");
-      await loadScript("js/extras.js");
-      await loadScript("js/engine.js");
-      topStats();
-      render();
-      if (hint) hint.textContent = `已更新 ${new Date().toTimeString().slice(0, 5)}`;
+      if (window.CC_LIVE && window.CC_PRED) {
+        const pack = await CC_LIVE.pull();
+        const locked = CC_PRED.apply(pack);
+        const dates = [...new Set(locked.map((m) => m.date))].sort();
+        if (dates.length && !locked.some((m) => m.date === state.date)) state.date = dates[0];
+        topStats();
+        render();
+        if (hint) hint.textContent = `算法 ${new Date().toTimeString().slice(0, 5)} · ${locked.length} 场`;
+      } else {
+        throw new Error("no live");
+      }
     } catch {
-      if (hint) hint.textContent = "刷新失败，下小时再试";
+      try {
+        await loadScript("js/data.js");
+        await loadScript("js/odds.js");
+        await loadScript("js/extras.js");
+        await loadScript("js/engine.js");
+        topStats();
+        render();
+        if (hint) hint.textContent = `离线底稿 ${new Date().toTimeString().slice(0, 5)}`;
+      } catch {
+        if (hint) hint.textContent = "刷新失败，下小时再试";
+      }
     } finally {
       clock.busy = false;
       clock.nextAt = Date.now() + HOUR_MS;
@@ -574,4 +588,5 @@
 
   topStats();
   render();
+  refreshData();
 })();

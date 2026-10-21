@@ -384,9 +384,10 @@
     ["jczq", "beidan", "r14"].forEach((key) => {
       const pack = packs[key] || {};
       (global.CC_DATA[key].matches || []).forEach((m) => {
-        if (key === "r14") m.date = Number(m.code) <= 7 ? "2026-10-20" : "2026-10-22";
-        const extra = m.date === "2026-10-20" ? {} : (pack[m.code] || {});
-        Object.assign(m, defaultExtras(m), extra);
+        if (key === "r14" && m.source !== "live") m.date = Number(m.code) <= 7 ? "2026-10-20" : "2026-10-22";
+        const extra = m.source === "live" || m.date === "2026-10-20" ? {} : (pack[m.code] || {});
+        const baked = m.source === "live" ? { market: m.market, ftOu: m.ftOu, summary: m.summary } : {};
+        Object.assign(m, defaultExtras(m), extra, baked);
         delete m.agents;
         delete m.tally;
         delete m.iw;
