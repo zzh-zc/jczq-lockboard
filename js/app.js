@@ -76,7 +76,7 @@
   }
 
   function jumpDateForView() {
-    const data = state.view === "news" ? CC_DATA.jczq : CC_DATA[state.view];
+    const data = (state.view === "news" || state.view === "results") ? CC_DATA.jczq : CC_DATA[state.view];
     if (!data || !data.matches) return;
     if (data.matches.some((m) => m.date === state.date)) return;
     const dates = [...new Set(data.matches.map((m) => m.date).filter(Boolean))].sort();
@@ -146,7 +146,7 @@
           ${matches.length ? matches.map((m) => `
             <button type="button" class="match-card ${m.id === state.selected ? "on" : ""}" data-id="${m.id}">
               <div class="row"><span>${m.league} · ${m.code}</span><span>${m.kickoff || ""}</span></div>
-              <div class="teams">${m.home} vs ${m.away}</div>
+              <div class="teams">${m.home} vs ${m.away}${m.score ? `　<span class="chip ${m.hit ? "home" : "cold"}">赛果 ${esc(m.score)} ${esc(m.result || "")}</span>` : ""}</div>
               <div class="chips">
                 ${lightChip(m)}
                 ${actionChip(m)}
@@ -176,7 +176,7 @@
         ${dayMatches.map((m) => `
           <div class="pool-item" data-id="${m.id}">
             <div class="row"><b>${m.code}</b> ${chips(m.pick)}</div>
-            <div class="kicker">${m.home} vs ${m.away}${m.paperOppose ? " · 热门别跟" : ""}</div>
+            <div class="kicker">${m.home} vs ${m.away}${m.score ? " · 赛果 " + m.score + " " + (m.result || "") : ""}${m.paperOppose ? " · 热门别跟" : ""}</div>
             <div class="script-line fx-mini">${(m.hadPicks || []).join(" ")}　${(m.ftScores || []).join("/")}</div>
           </div>
         `).join("") || "<p class='kicker'>无</p>"}
@@ -689,10 +689,63 @@
     `).join("")}</section>`;
   }
 
+  function renderResults() {
+    const q = state.q || "";
+    const date = state.date === TODAY ? "" : state.date;
+    const rows = window.CC_RESULT ? CC_RESULT.search(q, date) : [];
+    const at = (window.CC_RESULT_CACHE && CC_RESULT_CACHE.at) || "";
+    workspace.className = "workspace";
+    workspace.innerHTML = `
+      <section class="panel">
+        <div class="detail-head">
+          <div>
+            <h3>赛果查询</h3>
+            <p class="kicker">按日期、场次、队名查。昨天竞彩列表也会直接带出比分。缓存 ${esc(at)}</p>
+          </div>
+        </div>
+        <div class="date-nav">
+          <button type="button" class="ghost" id="dayPrev">◀</button>
+          <input type="date" id="dayPick" value="${state.date}" />
+          <button type="button" class="ghost" id="dayNext">▶</button>
+          <button type="button" class="ghost ${state.date === TODAY ? "on" : ""}" id="dayToday">今天</button>
+        </div>
+        <div class="filters">
+          <input id="q" placeholder="搜队名 / 场次 / 比分" value="${esc(q)}" />
+        </div>
+        <p class="kicker">${date ? state.date : "近几天"} · ${rows.length} 场</p>
+        <div class="table-wrap"><table class="table">
+          <thead><tr><th>日期</th><th>场</th><th>对阵</th><th>赛果</th><th>当时锁号</th><th></th></tr></thead>
+          <tbody>
+            ${rows.length ? rows.map((m) => `
+              <tr>
+                <td>${esc(m.date)}</td>
+                <td>${esc(m.slot || m.code)}</td>
+                <td>${esc(m.home)} vs ${esc(m.away)}</td>
+                <td>${esc(m.score)} · ${esc(m.result || "")}</td>
+                <td>${esc(showPick(m.pick) || "—")}</td>
+                <td class="${m.hit ? "hit" : (m.hit === false ? "miss" : "")}">${m.hit === true ? "中" : m.hit === false ? "挂" : ""}</td>
+              </tr>
+            `).join("") : `<tr><td colspan="6">这一天还没有赛果。翻到昨天或搜队名。</td></tr>`}
+          </tbody>
+        </table></div>
+      </section>
+    `;
+    const jump = (n) => {
+      state.date = CC_ODDS.addDays(state.date, n);
+      render();
+    };
+    $("dayPrev").onclick = () => jump(-1);
+    $("dayNext").onclick = () => jump(1);
+    $("dayToday").onclick = () => { state.date = TODAY; render(); };
+    $("dayPick").onchange = (e) => { state.date = e.target.value; render(); };
+    $("q").oninput = (e) => { state.q = e.target.value; render(); };
+  }
+
   function render() {
     if (state.view === "review") return renderReview();
     if (state.view === "rules") return renderRules();
     if (state.view === "news") return renderNews();
+    if (state.view === "results") return renderResults();
     renderSlate();
     bindIntel();
   }
@@ -752,7 +805,7 @@
     const light = fd.get("light") || "yellow";
     const unpricedText = String(fd.get("unpriced") || "").trim();
     const match = {
-      slate: state.view === "review" || state.view === "rules" ? "jczq" : state.view,
+      slate: state.view === "review" || state.view === "rules" || state.view === "results" ? "jczq" : state.view,
       code: fd.get("code"),
       league: fd.get("league"),
       home: fd.get("home"),

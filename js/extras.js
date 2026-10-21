@@ -255,17 +255,17 @@
   function inferFt(m) {
     const p = m.pick || "";
     const hcap = m.handicap || "";
-    if (p === "主" || p === "让胜" || p === "3") return pair("1-0", "2-0");
-    if (p === "客" || p === "让负" || p === "0") return pair("0-1", "0-2");
-    if (p === "平" || p === "让平" || p === "1") return pair("0-0", "1-1");
-    if (p === "主/平" || p === "让胜/让平") return pair("1-0", "0-0");
-    if (p === "主/客" || p === "让胜/让负" || p === "30") return pair("1-0", "0-1");
+    if (p === "主" || p === "让胜" || p === "3") return pair("2-1", "2-0");
+    if (p === "客" || p === "让负" || p === "0") return pair("1-2", "0-2");
+    if (p === "平" || p === "让平" || p === "1") return pair("1-1", "2-2");
+    if (p === "主/平" || p === "让胜/让平") return pair("2-1", "1-1");
+    if (p === "主/客" || p === "让胜/让负" || p === "30") return pair("2-1", "1-2");
     if (p === "平/客" || p === "让平/让负") {
-      if (hcap === "-1") return pair("1-0", "2-0");
-      if (hcap === "+1") return pair("0-1", "0-2");
-      return pair("1-1", "0-1");
+      if (hcap === "-1") return pair("2-1", "2-0");
+      if (hcap === "+1") return pair("1-2", "0-2");
+      return pair("1-2", "1-1");
     }
-    return pair("1-0", "0-0");
+    return pair("2-1", "1-1");
   }
 
   function sidesFromPick(p) {

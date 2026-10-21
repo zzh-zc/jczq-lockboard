@@ -41,29 +41,46 @@
   function fallbackScores(pick) {
     const s = sidesOf(pick);
     const has = (x) => s.indexOf(x) >= 0;
-    if (has("胜") && has("负")) return ["1-0", "0-1"];
-    if (has("胜") && has("平")) return ["1-0", "0-0"];
-    if (has("负") && has("平")) return ["1-1", "0-1"];
-    if (has("负")) return ["0-1", "0-2"];
-    if (has("平")) return ["0-0", "1-1"];
-    return ["1-0", "2-0"];
+    if (has("胜") && has("负")) return ["2-1", "1-2"];
+    if (has("胜") && has("平")) return ["2-1", "1-1"];
+    if (has("负") && has("平")) return ["1-2", "1-1"];
+    if (has("负")) return ["1-2", "0-2"];
+    if (has("平")) return ["1-1", "2-2"];
+    return ["2-1", "2-0"];
   }
 
-  function rankScore(side, row) {
+  function totOf(row) {
     const p = String(row.label).split("-").map(Number);
-    if (side === "胜") return [p[1], p[0], row.odds];
-    if (side === "负") return [p[0], p[1], row.odds];
-    return [p[0] + p[1], p[0], row.odds];
+    return (p[0] || 0) + (p[1] || 0);
   }
 
-  function cmpKey(a, b) {
-    for (let i = 0; i < a.length; i += 1) {
-      if (a[i] !== b[i]) return a[i] - b[i];
-    }
-    return 0;
+  function preferScore(row, side, night) {
+    const tot = totOf(row);
+    const aim = night ? 3 : 2.4;
+    let w = row.odds;
+    if (tot === 0) w += 12;
+    if (tot === 1) w += 2.2;
+    if (tot >= 6) w += 1.6;
+    w += Math.abs(tot - aim) * 0.35;
+    if (side === "平" && tot === 0) w += 6;
+    return w;
   }
 
-  function crsAligned(crs, sides) {
+  function pickCrs(rows, side, night) {
+    const list = (rows || []).slice();
+    if (!list.length) return [];
+    list.sort((a, b) => a.odds - b.odds);
+    const floor = list[0].odds;
+    const pool = list.filter((r) => r.odds <= floor * 1.45).slice(0, 8);
+    pool.sort((a, b) => preferScore(a, side, night) - preferScore(b, side, night) || a.odds - b.odds);
+    const out = [];
+    pool.forEach((r) => {
+      if (out.indexOf(r.label) < 0) out.push(r.label);
+    });
+    return out;
+  }
+
+  function crsAligned(crs, sides, night) {
     const by = { 胜: [], 平: [], 负: [] };
     Object.keys(crs || {}).forEach((k) => {
       const hit = k.match(/^s(\d{2})s(\d{2})$/);
@@ -75,13 +92,10 @@
       const side = h > a ? "胜" : h < a ? "负" : "平";
       by[side].push({ label: h + "-" + a, odds: odds });
     });
-    Object.keys(by).forEach((side) => {
-      by[side].sort((x, y) => cmpKey(rankScore(side, x), rankScore(side, y)));
-    });
-    if (sides.length === 1) return by[sides[0]].slice(0, 2).map((r) => r.label);
-    const a = by[sides[0]][0];
-    const b = by[sides[1]][0];
-    return [a && a.label, b && b.label].filter(Boolean);
+    if (sides.length === 1) return pickCrs(by[sides[0]], sides[0], night).slice(0, 2);
+    const a = pickCrs(by[sides[0]], sides[0], night)[0];
+    const b = pickCrs(by[sides[1]], sides[1], night)[0];
+    return [a, b].filter(Boolean);
   }
 
   function ttgAligned(ttg, scores) {
@@ -131,7 +145,9 @@
     const sides = sidesOf(locked.pick);
     locked.hadPicks = sides.slice();
     locked.hhadPicks = hhadAligned(raw.hhad || {}, sides);
-    locked.ftScores = pad2(crsAligned(raw.crs, sides), fallbackScores(locked.pick));
+    const hh = Number(String(locked.kickoff || "00:00").slice(0, 2));
+    const night = /欧冠|欧罗巴|欧协|英超|西甲|意甲|德甲|法甲/.test(String(locked.league || "")) || hh >= 21 || hh <= 5;
+    locked.ftScores = pad2(crsAligned(raw.crs, sides, night), fallbackScores(locked.pick));
     locked.ttgPicks = ttgAligned(raw.ttg, locked.ftScores);
     locked.hafuPicks = hafuAligned(sides);
     locked.ftOu = locked.ttgPicks;
@@ -600,6 +616,11 @@
     if (global.CC_FORM) CC_FORM.attachAll();
     if (global.CC_NEWS) CC_NEWS.attachAll();
     if (global.CC_ENGINE) CC_ENGINE.attachAll();
+    if (global.CC_RESULT && CC_RESULT.attachList) {
+      ["jczq", "beidan", "r14", "r9"].forEach((key) => {
+        CC_RESULT.attachList(((global.CC_DATA || {})[key] || {}).matches);
+      });
+    }
     explainAll();
   }
 
