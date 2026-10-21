@@ -1,5 +1,5 @@
 (function (global) {
-  const STORE = "jczq-cc-intel-items-v1";
+  const STORE = "jczq-cc-intel-match-v1";
   const PIN_B64 = "c3VvaGFv";
   const SKIP = /U-18|官方会员|MY TOKYO|发售通知|抽奖|商业战略|中国足球史上|超话|重锤|站前广场|精酿啤酒/;
   const CATS = ["全部", "伤病", "轮换", "阵容", "新闻"];
@@ -21,14 +21,19 @@
   }
 
   function saveOpened(list) {
-    try { localStorage.setItem(STORE, JSON.stringify(list.slice(0, 400))); } catch { /* ignore */ }
+    try { localStorage.setItem(STORE, JSON.stringify(list.slice(0, 200))); } catch { /* ignore */ }
+  }
+
+  function matchKey(m) {
+    if (!m) return "";
+    return m.slot || (m.date || "") + "|" + (m.home || "") + "|" + (m.away || "");
   }
 
   function isOpen(id) {
     return opened().indexOf(id) >= 0;
   }
 
-  function unlockItem(id, pin) {
+  function unlockMatch(id, pin) {
     if (!id || !pinOk(pin)) return false;
     const list = opened();
     if (list.indexOf(id) < 0) list.push(id);
@@ -36,24 +41,13 @@
     return true;
   }
 
-  function lockItem(id) {
+  function lockMatch(id) {
     saveOpened(opened().filter((x) => x !== id));
-  }
-
-  function lockAll() {
-    saveOpened([]);
   }
 
   function keep(item) {
     const blob = String((item && item.title) || "") + String((item && item.summary) || "");
     return !SKIP.test(blob);
-  }
-
-  function hash(s) {
-    let h = 5381;
-    const t = String(s || "");
-    for (let i = 0; i < t.length; i++) h = ((h << 5) + h) + t.charCodeAt(i);
-    return (h >>> 0).toString(36);
   }
 
   function catOf(kind) {
@@ -72,11 +66,10 @@
     return "新闻";
   }
 
-  function stamp(raw, side, team, slot) {
+  function stamp(raw, side, team) {
     return (raw || []).filter(keep).map((item) => {
       const kind = item.kind || "新闻";
       return {
-        id: hash([slot, side, kind, item.title, item.t].join("|")),
         kind: kind,
         cat: catOf(kind),
         tag: tagOf(kind),
@@ -86,7 +79,6 @@
         summary: item.summary || "",
         team: team,
         side: side,
-        slot: slot,
       };
     });
   }
@@ -96,14 +88,16 @@
     if (!cache || !m) return null;
     const raw = cache[m.slot] || cache[(m.date || "") + "|" + (m.home || "") + "|" + (m.away || "")];
     if (!raw) return null;
-    const slot = raw.slot || m.slot || "";
     return {
-      slot: slot,
+      id: raw.slot || matchKey(m),
+      slot: raw.slot || m.slot || "",
       date: raw.date,
       home: raw.home,
       away: raw.away,
-      homeNews: stamp(raw.homeNews, "home", raw.home, slot),
-      awayNews: stamp(raw.awayNews, "away", raw.away, slot),
+      homeLogo: raw.homeLogo || "",
+      awayLogo: raw.awayLogo || "",
+      homeNews: stamp(raw.homeNews, "home", raw.home),
+      awayNews: stamp(raw.awayNews, "away", raw.away),
     };
   }
 
@@ -121,8 +115,8 @@
   }
 
   function lockedCount(pack) {
-    const rows = [].concat((pack && pack.homeNews) || [], (pack && pack.awayNews) || []);
-    return rows.filter((x) => !isOpen(x.id)).length;
+    if (!pack) return 0;
+    return isOpen(pack.id) ? 0 : 1;
   }
 
   function attachAll() {
@@ -135,12 +129,8 @@
     });
   }
 
-  function boot() {
-    attachAll();
-  }
-
   global.CC_NEWS = {
-    CATS, pinOk, isOpen, unlockItem, lockItem, lockAll,
-    lookup, feedOf, countOf, lockedCount, attachAll, boot,
+    CATS, pinOk, isOpen, unlockMatch, lockMatch, matchKey,
+    lookup, feedOf, countOf, lockedCount, attachAll, boot: attachAll,
   };
 })(window);

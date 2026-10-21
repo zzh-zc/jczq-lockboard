@@ -248,8 +248,8 @@
     const pack = m.intel || (window.CC_NEWS ? CC_NEWS.lookup(m) : null);
     const n = window.CC_NEWS ? CC_NEWS.countOf(pack) : 0;
     if (!n) return "";
-    const locked = window.CC_NEWS ? CC_NEWS.lockedCount(pack) : n;
-    return `<span class="chip intel">${locked ? "内部 " + locked : "消息 " + n}</span>`;
+    const locked = window.CC_NEWS && CC_NEWS.lockedCount(pack);
+    return `<span class="chip intel">${locked ? "内部" : "消息 " + n}</span>`;
   }
 
   function esc(s) {
@@ -496,44 +496,60 @@
     return '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17 8h-1V6a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zm-7-2a2 2 0 1 1 4 0v2h-4V6z"/></svg>';
   }
 
-  function teaser(item, open) {
-    const full = String(item.summary || item.title || "");
-    if (open) return full;
-    return full.slice(0, 22) + (full.length > 22 ? "..." : "");
+  function crest(name, src, away) {
+    const letter = esc(String(name || "内").slice(0, 1));
+    const img = src
+      ? `<img src="${esc(src)}" alt="${esc(name)}" onerror="this.remove()">`
+      : "";
+    return `<div class="intel-crest"><span class="intel-ava ${away ? "away" : ""}">${letter}</span>${img}</div>`;
   }
 
   function renderIntelRow(item) {
-    const open = window.CC_NEWS && CC_NEWS.isOpen(item.id);
-    const asking = state.unlockId === item.id && !open;
     const ava = String(item.team || "内").slice(0, 1);
+    const body = item.summary || item.title || "";
     return `
-      <div class="intel-row ${open ? "" : "locked"}">
+      <div class="intel-row">
         <span class="intel-ava ${item.side === "away" ? "away" : ""}">${esc(ava)}</span>
         <div class="intel-body">
-          <div class="intel-tag">${esc(item.tag)}</div>
+          <div class="intel-tag">${esc(item.tag)} · ${esc(item.team || "")}</div>
           <h4>${esc(item.title)}</h4>
-          <p class="intel-preview">${esc(teaser(item, open))}${open && item.source ? " · " + esc(item.source) : ""}</p>
-          ${asking ? `
-            <form class="intel-unlock" data-unlock="${esc(item.id)}">
-              <input name="pin" type="password" autocomplete="off" placeholder="这条的口令" />
-              <button type="submit" class="primary">解锁这条</button>
-              <span class="intel-err"></span>
-            </form>
-          ` : ""}
+          <p class="intel-preview">${esc(body)}${item.source ? " · " + esc(item.source) : ""}</p>
         </div>
         <span class="intel-time">${esc(item.t || "")}</span>
-        <button type="button" class="intel-lockbtn ${open ? "open" : ""}" data-intel-id="${esc(item.id)}" aria-label="${open ? "已解锁" : "解锁这条"}">${lockSvg(open)}</button>
       </div>
     `;
   }
 
   function renderIntelMatch(m, cat) {
-    const rows = window.CC_NEWS ? CC_NEWS.feedOf(m, cat) : [];
-    if (!rows.length) return "";
+    const pack = m.intel || (window.CC_NEWS ? CC_NEWS.lookup(m) : null);
+    if (!pack || !window.CC_NEWS) return "";
+    const id = pack.id;
+    const open = CC_NEWS.isOpen(id);
+    const n = CC_NEWS.countOf(pack);
+    const rows = open ? CC_NEWS.feedOf(m, cat) : [];
+    const asking = state.unlockId === id && !open;
     return `
       <article class="intel-match">
-        <div class="intel-match-h">${esc(m.league || "")} · ${esc(m.code || "")}<br><b>${esc(m.home)} vs ${esc(m.away)}</b></div>
-        ${rows.map(renderIntelRow).join("")}
+        <div class="intel-cover">
+          <div class="intel-cover-h">${esc(m.league || "")} · ${esc(m.code || "")} · ${esc(m.kickoff || "")}</div>
+          <div class="intel-vs">
+            <div class="intel-side">${crest(m.home, pack.homeLogo, false)}<b>${esc(m.home)}</b></div>
+            <i>VS</i>
+            <div class="intel-side">${crest(m.away, pack.awayLogo, true)}<b>${esc(m.away)}</b></div>
+          </div>
+          <div class="intel-cover-foot">
+            <p>${open ? "已解锁 · 这场全部消息" : n + " 条内部消息 · 解锁看这场全部"}</p>
+            <button type="button" class="intel-lockbtn ${open ? "open" : ""}" data-intel-id="${esc(id)}" aria-label="${open ? "重新上锁" : "解锁这场"}">${lockSvg(open)}</button>
+          </div>
+          ${asking ? `
+            <form class="intel-unlock" data-unlock="${esc(id)}">
+              <input name="pin" type="password" autocomplete="off" placeholder="这场口令" />
+              <button type="submit" class="primary">解锁这场</button>
+              <span class="intel-err"></span>
+            </form>
+          ` : ""}
+        </div>
+        ${open ? (rows.map(renderIntelRow).join("") || "<p class='kicker' style='padding:10px 12px'>这一类没有消息。</p>") : ""}
       </article>
     `;
   }
@@ -545,7 +561,7 @@
       <div class="intel-page" style="margin-top:12px">
         <div class="intel-head">
           <h2>内部消息</h2>
-          <p>每条单独解锁。内容底稿，不改灯。</p>
+          <p>一场一锁，解开看这场全部。内容底稿，不改灯。</p>
         </div>
         ${renderIntelMatch(m, "全部")}
       </div>
@@ -564,7 +580,7 @@
         <div class="intel-page">
           <div class="intel-head">
             <h2>内部消息</h2>
-            <p>每条单独解锁 · 缓存 ${esc(at)} · 内容底稿，不改灯</p>
+            <p>一场一锁 · 封面是两队对战 · 缓存 ${esc(at)} · 不改灯</p>
             <div class="date-nav">
               <button type="button" class="ghost" id="dayPrev">◀</button>
               <input type="date" id="dayPick" value="${state.date}" />
@@ -576,7 +592,7 @@
             </div>
           </div>
           <div class="intel-day">${esc(cnDate(state.date))}</div>
-          ${cards || "<p class='kicker'>这一类这一天没有消息。</p>"}
+          ${cards || "<p class='kicker'>这一天还没有球队消息。</p>"}
         </div>
       </section>
     `;
@@ -600,7 +616,7 @@
       btn.onclick = () => {
         const id = btn.getAttribute("data-intel-id");
         if (window.CC_NEWS && CC_NEWS.isOpen(id)) {
-          CC_NEWS.lockItem(id);
+          CC_NEWS.lockMatch(id);
           state.unlockId = null;
           render();
           return;
@@ -616,7 +632,7 @@
         e.preventDefault();
         const id = form.getAttribute("data-unlock");
         const pin = (new FormData(form).get("pin") || "").toString();
-        if (window.CC_NEWS && CC_NEWS.unlockItem(id, pin)) {
+        if (window.CC_NEWS && CC_NEWS.unlockMatch(id, pin)) {
           state.unlockId = null;
           render();
           return;
