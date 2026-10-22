@@ -1,7 +1,7 @@
 (function (global) {
   const STORE = "jczq-cc-intel-match-v1";
   const PIN_B64 = "c3VvaGFv";
-  const SKIP = /U-18|官方会员|MY TOKYO|发售通知|抽奖|商业战略|中国足球史上|超话|重锤|站前广场|精酿啤酒/;
+  const SKIP = /U-18|官方会员|MY TOKYO|发售通知|抽奖|商业战略|中国足球史上|超话|重锤|站前广场|精酿啤酒|女足|画廊|ArchDaily|[\u3040-\u30ff]/;
   const CATS = ["全部", "伤病", "轮换", "阵容", "新闻"];
 
   function pinOk(raw) {
@@ -27,6 +27,10 @@
   function matchKey(m) {
     if (!m) return "";
     return m.slot || (m.date || "") + "|" + (m.home || "") + "|" + (m.away || "");
+  }
+
+  function teamKey(name) {
+    return "team:" + String(name || "").trim();
   }
 
   function isOpen(id) {
@@ -129,7 +133,7 @@
   }
 
   global.CC_NEWS = {
-    CATS, pinOk, isOpen, unlockMatch, lockMatch, matchKey,
+    CATS, pinOk, isOpen, unlockMatch, lockMatch, matchKey, teamKey,
     lookup, feedOf, countOf, lockedCount, attachAll, boot: attachAll,
   };
 })(window);

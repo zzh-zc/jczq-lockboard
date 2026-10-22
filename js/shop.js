@@ -7,6 +7,9 @@
     info: false,
     infoTab: "fx",
     slip: [],
+    stake: 10,
+    unlockAsk: null,
+    newsCat: "全部",
   };
 
   const $ = (id) => document.getElementById(id);
@@ -111,18 +114,6 @@
     return Math.round((x || 0) * 1000) / 10;
   }
 
-  function formPack(m) {
-    return m.form || (global.CC_FORM && CC_FORM.lookup(m)) || null;
-  }
-
-  function sideLine(side, label) {
-    const r = (side && side.recent) || {};
-    if (!r.n) return label + "样本不足。";
-    const rate = Math.round((r.w / r.n) * 100);
-    const mood = rate >= 60 ? "良好" : rate >= 40 ? "一般" : "较差";
-    return label + "近" + r.n + "场" + r.w + "胜" + r.d + "平" + r.l + "负，胜场率" + rate + "%，状态" + mood + "；进" + (r.gf || 0) + "失" + (r.ga || 0) + "，场均进" + ((r.gf || 0) / r.n).toFixed(1) + "失" + ((r.ga || 0) / r.n).toFixed(1) + "。";
-  }
-
   function renderHead() {
     const hint = $("refreshHint");
     const liveAt = (global.CC_DATA && CC_DATA._liveAt) || "即时";
@@ -180,11 +171,13 @@
 
   function renderResults() {
     const rows = global.CC_RESULT ? CC_RESULT.search("", state.date === TODAY ? "" : state.date) : [];
-    const show = state.date === TODAY ? rows.slice(0, 40) : rows.filter((r) => r.date === state.date);
-    const ours = dayList();
-    $("shopMain").innerHTML = (show.length ? show : ours.filter((m) => m.score)).map((m) => {
+    const show = (state.date === TODAY ? rows.slice(0, 40) : rows.filter((r) => r.date === state.date));
+    const ours = dayList().filter((m) => m.score || m.result);
+    const list = show.length ? show : ours;
+    $("shopMain").innerHTML = list.map((m) => {
       const pick = m.pick || "";
-      const ok = m.result && global.CC_RESULT ? CC_RESULT.hitOf(pick, m.result) : null;
+      const ok = m.result && global.CC_RESULT ? CC_RESULT.hitOf(pick, m.result) : (m.hit === true ? true : m.hit === false ? false : null);
+      const res = m.result === "主" || m.result === "胜" ? "主胜" : m.result === "客" || m.result === "负" ? "客胜" : m.result === "平" ? "平局" : "";
       return `
         <article class="shop-sg">
           <div class="shop-sg-hd"><span>${esc(m.league || "")} · ${esc(m.slot || m.code || "")}</span><span>${esc(m.date || "")} ${esc(m.kickoff || "")}</span></div>
@@ -193,7 +186,11 @@
             <span class="shop-sg-score">${esc(m.score || "-:-")}</span>
             <span>${esc(m.away)}</span>
           </div>
-          <p class="shop-note" style="padding:0">${pick ? "锁 " + esc(String(pick).replace(/主/g, "胜").replace(/客/g, "负")) : "赛果"} ${ok === true ? "· 中" : ok === false ? "· 挂" : ""}</p>
+          <div class="shop-sg-foot">
+            <span>${esc(res)}</span>
+            <span>${pick ? "锁 " + esc(String(pick).replace(/主/g, "胜").replace(/客/g, "负")) : "未锁"}</span>
+            <b class="${ok === true ? "hit" : ok === false ? "miss" : ""}">${ok === true ? "中" : ok === false ? "挂" : "—"}</b>
+          </div>
         </article>
       `;
     }).join("") || `<p class="shop-note">这一天还没有赛果。</p>`;
@@ -207,20 +204,29 @@
     const list = dayList();
     $("shopMain").innerHTML = list.map((m) => {
       const f = fair(m);
+      const e = m.engine || (global.CC_ENGINE && CC_ENGINE.read(m)) || {};
       const h = pct(f.h); const d = pct(f.d); const a = pct(f.a);
       const mx = Math.max(h, d, a);
+      const mk = m.market || {};
       return `
         <article class="shop-card">
           <div class="shop-card-top">
             <span class="shop-slot">${esc(slotOf(m))}</span>
             <span>${esc(m.league || "")}</span>
-            <span>${esc(m.date || "")}</span>
-            <span></span>
+            <span>${esc(whenOf(m))}</span>
+            <button type="button" class="shop-fx" data-info="${esc(m.id || slotOf(m))}">赛事分析</button>
           </div>
           <div class="shop-vs">
             <div class="shop-team"><span>${esc(m.home)}</span></div>
             <b>VS</b>
             <div class="shop-team"><span>${esc(m.away)}</span></div>
+          </div>
+          <div class="shop-wind-meta">
+            <span>SP ${esc(m.sp || "—")}</span>
+            <span>让 ${esc(m.handicap || "0")}</span>
+            <span>欧 ${esc(global.CC_ENGINE ? CC_ENGINE.sideLabel(e.eu) : "—")} / 亚 ${esc(global.CC_ENGINE ? CC_ENGINE.sideLabel(e.ah) : "—")}</span>
+            <span>${esc(e.fight ? "欧亚拧着" : "同向")}</span>
+            <span>${esc(mk.quake || "走势未知")}</span>
           </div>
           <div class="shop-bars">
             ${barRow("胜", h, h === mx)}
@@ -249,49 +255,21 @@
 
   function renderCalc() {
     const combo = state.slip.reduce((s, x) => s * (x.odd || 1), 1);
+    const stake = Number(state.stake) || 10;
+    const ret = combo * stake;
     $("shopMain").innerHTML = `
-      <p class="shop-note">点赛事分析页的三个号，会进过关条。只算竞彩即时 SP 近似。</p>
       <div class="shop-slip">
+        <p class="shop-note" style="padding:0 0 8px">点下面三个号进过关。赔率用竞彩即时 SP 近似。</p>
         ${state.slip.length ? state.slip.map((x, i) => `<p>${esc(x.label)}　${x.odd}<button type="button" data-del="${i}">删</button></p>`).join("") : "<p>还没有选号</p>"}
-        <p><b>过关约 ${combo.toFixed(2)}</b></p>
+        <p>本金 <input id="shopStake" type="number" min="1" step="1" value="${stake}" /> 元</p>
+        <p><b>${state.slip.length} 串 1　过关 ${combo.toFixed(2)}　回报约 ${ret.toFixed(2)}</b></p>
       </div>
       ${dayList().map(renderCard).join("")}
     `;
   }
 
-  function analysisHtml(m) {
-    const pack = formPack(m);
-    const hs = (pack && pack.homeSide) || {};
-    const as = (pack && pack.awaySide) || {};
-    const f = fair(m);
-    const will = m.will && m.will.text ? m.will.text : "未知。";
-    return `
-      <div class="shop-block"><h3>队伍的实力</h3><p>${esc(sideLine(hs, "主队" + m.home + "："))}</p><p>${esc(sideLine(as, "客队" + m.away + "："))}</p></div>
-      <div class="shop-block"><h3>赛前状态分析</h3><p>${esc(sideLine(hs, "●主队："))}</p><p>${esc(sideLine(as, "●客队："))}</p><p>战意：${esc(will)}</p></div>
-      <div class="shop-block"><h3>攻防能力分析</h3><p>${esc(sideLine(hs, "●主队："))}</p><p>${esc(sideLine(as, "●客队："))}</p></div>
-      <div class="shop-block"><h3>泊松分布</h3><p>去水后胜 ${pct(f.h)}% / 平 ${pct(f.d)}% / 负 ${pct(f.a)}%。</p></div>
-      <div class="shop-block"><h3>进球效率预测</h3><p>比分 ${esc(crsText(m))}，总进球 ${esc(ttgText(m))}。</p></div>
-      <div class="shop-block"><h3>综合分析</h3><p>倾向 ${esc(hadText(m))}，动作 ${esc(m.action || "")}。${esc(m.steady || m.tag || "")}</p><p class="shop-note">赛事分析只整理盘口和公开近况，不做投注引导。</p></div>
-    `;
-  }
-
-  function intelHtml(m) {
-    const pack = m.intel || (global.CC_NEWS && CC_NEWS.lookup(m));
-    const id = m.id || (global.CC_NEWS && CC_NEWS.matchKey(m)) || slotOf(m);
-    const open = global.CC_NEWS && [m.id, m.slot, id].filter(Boolean).some((k) => CC_NEWS.isOpen(k));
-    if (!pack) return `<div class="shop-block"><p>这场还没有赛事情报。</p></div>`;
-    if (!open) {
-      return `<div class="shop-block intel-lock"><p>内部消息锁着。点卡片任意处输入口令。</p>
-        <form data-unlock="${esc(id)}"><input name="pin" type="password" placeholder="口令" /><button class="shop-pill" type="submit">解开</button></form></div>`;
-    }
-    const rows = [].concat(pack.homeNews || [], pack.awayNews || []).slice(0, 12);
-    return `<div class="shop-block"><h3>赛事情报</h3>${rows.map((x) => `<p><b>${esc(x.title || "")}</b> ${esc(x.summary || "")}</p>`).join("") || "<p>暂无</p>"}</div>`;
-  }
-
-  function histHtml(m) {
-    const pack = formPack(m);
-    const games = [].concat((((pack || {}).homeSide || {}).recent || {}).games || [], (((pack || {}).awaySide || {}).recent || {}).games || []).slice(0, 12);
-    return `<div class="shop-block"><h3>历史战绩</h3>${games.length ? games.map((g) => `<p>${esc(g.date || "")} ${esc(g.comp || "")} vs ${esc(g.opp || "")} ${esc(g.score || "")} ${esc(g.res || "")}</p>`).join("") : "<p>样本不足。</p>"}</div>`;
+  function ui() {
+    return { fair, pct, hadText, ttgText, crsText };
   }
 
   function renderInfo() {
@@ -300,7 +278,9 @@
     const cur = list.find((m) => (m.id || slotOf(m)) === state.selected) || list[0];
     state.selected = cur.id || slotOf(cur);
     const lg = logos(cur);
-    const body = state.infoTab === "intel" ? intelHtml(cur) : state.infoTab === "hist" ? histHtml(cur) : analysisHtml(cur);
+    const body = global.CC_SHOP_DETAIL
+      ? CC_SHOP_DETAIL.infoBody(state.infoTab, cur, ui(), state)
+      : "";
     $("shopInfo").hidden = false;
     $("shopInfo").innerHTML = `
       <div class="shop-info-bar"><button type="button" id="shopBack">←</button><h2>赛事分析详情</h2><span></span></div>
@@ -317,6 +297,7 @@
         <button type="button" class="${state.infoTab === "fx" ? "on" : ""}" data-infotab="fx">赛事分析</button>
         <button type="button" class="${state.infoTab === "intel" ? "on" : ""}" data-infotab="intel">赛事情报</button>
         <button type="button" class="${state.infoTab === "hist" ? "on" : ""}" data-infotab="hist">历史战绩</button>
+        <button type="button" class="${state.infoTab === "msg" ? "on" : ""}" data-infotab="msg">内部消息</button>
       </div>
       ${body}
     `;
@@ -362,25 +343,45 @@
     document.querySelectorAll("[data-infotab]").forEach((el) => {
       el.onclick = () => { state.infoTab = el.getAttribute("data-infotab"); render(); };
     });
-    document.querySelectorAll("form[data-unlock]").forEach((form) => {
-      form.onsubmit = (e) => {
-        e.preventDefault();
-        const id = form.getAttribute("data-unlock");
-        const pin = (new FormData(form).get("pin") || "").toString();
-        if (global.CC_NEWS && CC_NEWS.unlockMatch(id, pin)) render();
+    const stakeBox = $("shopStake");
+    if (stakeBox) stakeBox.onchange = () => { state.stake = +stakeBox.value || 10; render(); };
+    document.querySelectorAll("[data-news-cat]").forEach((el) => {
+      el.onclick = () => { state.newsCat = el.getAttribute("data-news-cat"); render(); };
+    });
+    document.querySelectorAll("[data-intel-card]").forEach((card) => {
+      card.onclick = (e) => {
+        const id = card.getAttribute("data-intel-card");
+        if (e.target.closest("[data-unlock]")) return;
+        if (global.CC_NEWS && CC_NEWS.isOpen(id)) {
+          if (!e.target.closest("[data-intel-id]")) return;
+          CC_NEWS.lockMatch(id);
+          state.unlockAsk = null;
+          render();
+          return;
+        }
+        if (state.unlockAsk === id) return;
+        state.unlockAsk = id;
+        render();
+        const box = document.querySelector(`[data-unlock="${id}"] input`);
+        if (box) box.focus();
       };
     });
-    const infoRoot = $("shopInfo");
-    if (infoRoot && !infoRoot.hidden) {
-      infoRoot.onclick = (e) => {
-        if (state.infoTab !== "intel") return;
-        const form = infoRoot.querySelector("form[data-unlock]");
-        if (!form) return;
-        if (e.target.closest("form")) return;
-        const pin = window.prompt("口令");
-        if (pin && global.CC_NEWS && CC_NEWS.unlockMatch(form.getAttribute("data-unlock"), pin)) render();
+    document.querySelectorAll("form[data-unlock]").forEach((form) => {
+      form.onclick = (e) => e.stopPropagation();
+      form.onsubmit = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = form.getAttribute("data-unlock");
+        const pin = (new FormData(form).get("pin") || "").toString();
+        if (global.CC_NEWS && CC_NEWS.unlockMatch(id, pin)) {
+          state.unlockAsk = null;
+          render();
+          return;
+        }
+        const err = form.querySelector(".intel-err");
+        if (err) err.textContent = "口令不对";
       };
-    }
+    });
   }
 
   function jumpLive() {
@@ -402,6 +403,11 @@
     else if (state.tab === "sg") renderResults();
     else if (state.tab === "wind") renderWind();
     else if (state.tab === "calc") renderCalc();
+    else if (state.tab === "msg") {
+      $("shopMain").innerHTML = global.CC_SHOP_DETAIL
+        ? CC_SHOP_DETAIL.innerListHtml(dayList(), state, logos)
+        : "";
+    }
     else renderList();
     document.querySelectorAll("[data-tab]").forEach((el) => {
       el.classList.toggle("on", el.getAttribute("data-tab") === state.tab);
