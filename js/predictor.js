@@ -543,7 +543,8 @@
 
   function issueKeyOf(m) {
     const iss = (global.CC_ODDS && CC_ODDS.issueDateOf) ? CC_ODDS.issueDateOf(m) : ((m && (m.issueDate || m.date)) || "");
-    if (m && m.slot) return iss + "|" + m.slot;
+    const code = String((m && (m.slot || m.code)) || "").match(/(\d{3,4})$/);
+    if (code) return iss + "|" + code[1];
     return [iss, (m && m.home) || "", (m && m.away) || ""].join("|");
   }
 
@@ -554,7 +555,7 @@
       if (key && issueKeyOf(o) === key) return true;
       const iss = (global.CC_ODDS && CC_ODDS.issueDateOf) ? CC_ODDS.issueDateOf(raw) : (raw.issueDate || raw.date);
       const oiss = (global.CC_ODDS && CC_ODDS.issueDateOf) ? CC_ODDS.issueDateOf(o) : (o.issueDate || o.date);
-      return sameTeam(o.home, raw.home) && sameTeam(o.away, raw.away) && (!iss || !oiss || iss === oiss);
+      return sameTeam(o.home, raw.home) && sameTeam(o.away, raw.away) && (!iss || !oiss || iss === oiss || nearIssue(raw, o));
     }) || null;
   }
 
@@ -574,16 +575,28 @@
     prev.liveScore = raw.liveScore || prev.liveScore;
     prev.liveState = raw.liveState || prev.liveState;
     prev.liveMinute = raw.liveMinute || prev.liveMinute;
+    if (raw.htScore) prev.htScore = raw.htScore;
   }
 
   function coreName(s) {
+    if (global.CC_RESULT && CC_RESULT.teamKey) return CC_RESULT.teamKey(s);
     return String(s || "").replace(/FC|RB|AFC|竞技|\s/g, "");
   }
 
   function sameTeam(a, b) {
+    if (global.CC_RESULT && CC_RESULT.sameTeam) return CC_RESULT.sameTeam(a, b);
     const x = coreName(a);
     const y = coreName(b);
     return x && y && (x === y || x.includes(y) || y.includes(x));
+  }
+
+  function nearIssue(a, b) {
+    const da = String((a && (a.issueDate || a.date)) || "");
+    const db = String((b && (b.issueDate || b.date)) || "");
+    if (!da || !db) return true;
+    if (da === db) return true;
+    const t = (s) => Date.parse(s + "T12:00:00");
+    return Math.abs(t(da) - t(db)) <= 36 * 3600 * 1000;
   }
 
   function twinOf(raw, list) {
@@ -757,7 +770,7 @@
     const seen = new Set(locked.map(keyOf));
     const keep = old.filter((m) => {
       if (!m || seen.has(keyOf(m))) return false;
-      if (locked.some((n) => sameTeam(n.home, m.home) && sameTeam(n.away, m.away) && issueKeyOf(n).split("|")[0] === issueKeyOf(m).split("|")[0])) return false;
+      if (locked.some((n) => sameTeam(n.home, m.home) && sameTeam(n.away, m.away) && nearIssue(n, m))) return false;
       if (!m.source) m.source = "board";
       return true;
     });
@@ -765,6 +778,7 @@
     realign(locked);
     realign(keep);
     let all = keep.concat(locked);
+    if (global.CC_BOARD && CC_BOARD.collapseTwins) all = CC_BOARD.collapseTwins(all);
     if (global.CC_BOARD && CC_BOARD.pruneList) all = CC_BOARD.pruneList(all);
     global.CC_DATA.jczq.matches = all;
     global.CC_DATA.jczq.title = "竞彩足球 · 在售 " + locked.length + " / 历史 " + keep.length;
@@ -1052,6 +1066,7 @@
   function hydrateHistory() {
     if (!global.CC_DATA || !CC_DATA.jczq) return [];
     CC_DATA.jczq.matches = (CC_DATA.jczq.matches || []).filter((m) => m && m.source !== "hist" && m.source !== "sfc-history");
+    if (global.CC_BOARD && CC_BOARD.collapseTwins) CC_DATA.jczq.matches = CC_BOARD.collapseTwins(CC_DATA.jczq.matches);
     (CC_DATA.jczq.matches || []).forEach((m) => {
       if (global.CC_ODDS && CC_ODDS.stampIssue) CC_ODDS.stampIssue(m);
       backfillMarkets(m);

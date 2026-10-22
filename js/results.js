@@ -1,11 +1,34 @@
 (function (global) {
+  const ALIAS = [
+    [/皇家马德里|皇马/, "皇马"],
+    [/莱比锡红牛|莱红牛|莱比锡/, "莱比锡"],
+    [/曼彻斯特联|曼联/, "曼联"],
+    [/曼彻斯特城|曼城/, "曼城"],
+    [/巴黎圣日耳曼|巴黎圣日尔曼|巴黎/, "巴黎"],
+    [/拜仁慕尼黑|拜仁/, "拜仁"],
+    [/加拉塔萨雷|加拉塔萨/, "加拉塔萨"],
+    [/布拉迪斯拉发/, "布拉迪"],
+    [/弗鲁米嫩塞|弗鲁米嫩/, "弗鲁米嫩"],
+    [/马德里竞技|马竞/, "马竞"],
+    [/阿斯顿维拉|维拉/, "维拉"],
+    [/博德闪耀/, "博德"],
+    [/里斯本竞技/, "里斯本"],
+  ];
+
   function core(s) {
     return String(s || "").replace(/FC|RB|AFC|竞技|\s/g, "");
   }
 
+  function teamKey(s) {
+    const raw = String(s || "");
+    const hit = ALIAS.find((row) => row[0].test(raw));
+    if (hit) return hit[1];
+    return core(raw);
+  }
+
   function sameTeam(a, b) {
-    const x = core(a);
-    const y = core(b);
+    const x = teamKey(a);
+    const y = teamKey(b);
     return x && y && (x === y || x.includes(y) || y.includes(x));
   }
 
@@ -31,6 +54,7 @@
       home: m.home || "",
       away: m.away || "",
       date: m.date || "",
+      issueDate: m.issueDate || "",
       kickoff: m.kickoff || "",
       score: m.score || "",
       result: m.result || "",
@@ -42,8 +66,23 @@
       hafuPicks: m.hafuPicks,
       htScores: m.htScores,
       htScore: m.htScore || m.halfScore,
+      matchId: m.matchId,
       hit: m.hit,
     };
+  }
+
+  function slotCode(s) {
+    const hit = String(s || "").match(/(\d{3,4})$/);
+    return hit ? hit[1] : String(s || "");
+  }
+
+  function nearDay(a, b) {
+    const da = String((a && (a.issueDate || a.date)) || "");
+    const db = String((b && (b.issueDate || b.date)) || "");
+    if (!da || !db) return true;
+    if (da === db) return true;
+    const t = (s) => Date.parse(s + "T12:00:00");
+    return Math.abs(t(da) - t(db)) <= 36 * 3600 * 1000;
   }
 
   function isGhostMarkets(m) {
@@ -65,10 +104,13 @@
     const out = [];
     fromCache().concat(fromSlates()).forEach((m) => {
       const row = stamp(m);
-      const key = [row.date, row.home, row.away, row.score].join("|");
+      const key = [teamKey(row.home), teamKey(row.away), row.score || row.result].join("|");
       if (!row.score && !row.result) return;
-      if (seen[key]) return;
-      seen[key] = true;
+      if (seen[key]) {
+        if (!seen[key].htScore && row.htScore) seen[key].htScore = row.htScore;
+        return;
+      }
+      seen[key] = row;
       out.push(row);
     });
     out.sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(a.code).localeCompare(String(b.code)));
@@ -87,7 +129,11 @@
 
   function lookup(m) {
     if (!m) return null;
-    return all().find((r) => r.date === m.date && sameTeam(r.home, m.home) && sameTeam(r.away, m.away)) || null;
+    const list = all();
+    const code = slotCode(m.slot || m.code);
+    const slotHit = code && list.find((r) => slotCode(r.slot || r.code) === code && sameTeam(r.home, m.home) && sameTeam(r.away, m.away));
+    if (slotHit) return slotHit;
+    return list.find((r) => sameTeam(r.home, m.home) && sameTeam(r.away, m.away) && nearDay(r, m)) || null;
   }
 
   function parseScore(s) {
@@ -138,15 +184,24 @@
     });
   }
 
+  function hafuNorm(p) {
+    const s = String(p || "").replace(/\s/g, "").replace(/[\/\-]/g, "");
+    const pair = s.match(/[胜平负]{2}/);
+    return pair ? pair[0] : s;
+  }
+
   function hafuHit(m) {
-    const ht = parseScore(m && (m.htScore || m.halfScore));
-    const ft = parseScore(m && m.score);
-    if (!ht || !ft) return null;
-    const side = (h, a) => (h > a ? "胜" : h < a ? "负" : "平");
-    const lab = side(ht.h, ht.a) + side(ft.h, ft.a);
-    const picks = m.hafuPicks || m.htScores || [];
+    const picks = (m.hafuPicks || m.htScores || []).map(hafuNorm).filter((p) => /[胜平负]{2}/.test(p));
     if (!picks.length) return null;
-    return picks.some((p) => String(p).replace(/\s/g, "") === lab);
+    const ft = parseScore(m && m.score);
+    const ftSide = ft ? (ft.h > ft.a ? "胜" : ft.h < ft.a ? "负" : "平") : (resultOf(m) === "主" ? "胜" : resultOf(m) === "客" ? "负" : resultOf(m) === "平" ? "平" : "");
+    const ht = parseScore(m && (m.htScore || m.halfScore));
+    if (ht && ft) {
+      const lab = (ht.h > ht.a ? "胜" : ht.h < ht.a ? "负" : "平") + (ft.h > ft.a ? "胜" : ft.h < ft.a ? "负" : "平");
+      return picks.some((p) => p === lab);
+    }
+    if (ftSide && picks.every((p) => p.slice(-1) !== ftSide)) return false;
+    return null;
   }
 
   function chips(m) {
@@ -191,11 +246,13 @@
       if (hit) {
         m.score = m.score || hit.score;
         m.result = m.result || hit.result;
+        m.htScore = m.htScore || hit.htScore || hit.halfScore;
+        m.matchId = m.matchId || hit.matchId;
       }
       scrubGhost(m);
       reviewOf(m);
     });
   }
 
-  global.CC_RESULT = { all, search, lookup, attachList, hitOf, hitAny, hadHit, ttgHit, crsHit, hafuHit, chips, parseScore, resultOf, isGhostMarkets };
+  global.CC_RESULT = { all, search, lookup, attachList, hitOf, hitAny, hadHit, ttgHit, crsHit, hafuHit, chips, parseScore, resultOf, isGhostMarkets, sameTeam, teamKey };
 })(window);

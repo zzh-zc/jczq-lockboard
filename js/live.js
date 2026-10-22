@@ -165,7 +165,12 @@
   function newsOf(m) {
     const bag = (global.CC_NEWS_CACHE && global.CC_NEWS_CACHE.bySlot) || {};
     if (m.slot && bag[m.slot]) return bag[m.slot];
-    return Object.values(bag).find((x) => x.date === m.date && x.home === m.home && x.away === m.away) || {};
+    const same = (global.CC_RESULT && CC_RESULT.sameTeam) || ((a, b) => a === b);
+    const code = String(m.slot || m.code || "").replace(/^周./, "");
+    return Object.values(bag).find((x) => {
+      if (same(x.home, m.home) && same(x.away, m.away)) return true;
+      return code && String(x.slot || "").replace(/^周./, "") === code && same(x.home, m.home);
+    }) || {};
   }
 
   async function fetchFotmobDay(ymd) {
@@ -205,15 +210,79 @@
     m.liveScore = hit.score || "";
     m.liveState = hit.liveState || "";
     m.liveMinute = hit.liveMinute || "";
+    if (hit.htScore) m.htScore = hit.htScore;
     if (hit.liveState === "ft" && hit.score) {
       m.score = hit.score;
       m.result = m.result || hadOfScore(hit.score);
+    }
+    if (hit.id) m.matchId = m.matchId || hit.id;
+  }
+
+  function htFromDetails(json) {
+    const events = ((((json || {}).content || {}).matchFacts || {}).events || {}).events || [];
+    const half = events.find((e) => e && e.type === "Half" && (e.halfStrShort === "HT" || e.homeScore != null));
+    if (half && half.homeScore != null && half.awayScore != null) return half.homeScore + "-" + half.awayScore;
+    let h = 0;
+    let a = 0;
+    for (let i = 0; i < events.length; i += 1) {
+      const e = events[i];
+      if (!e) continue;
+      if (e.type === "Half") break;
+      if (e.type !== "Goal") continue;
+      if (e.isHome) h += 1;
+      else a += 1;
+    }
+    if (h || a) return h + "-" + a;
+    return "";
+  }
+
+  async function fetchFotmobMatch(id) {
+    const url = "https://www.fotmob.com/api/data/matchDetails?matchId=" + id;
+    try {
+      return await loadJson(url);
+    } catch (e1) {
+      try {
+        return await loadJson("https://cors.eu.org/" + url);
+      } catch (e2) {
+        return loadJson("https://api.allorigins.win/raw?url=" + encodeURIComponent(url));
+      }
+    }
+  }
+
+  function scoreDays(list) {
+    const days = {};
+    (list || []).forEach((m) => {
+      const ymd = ymdOf(m.date);
+      if (ymd.length === 8) days[ymd] = true;
+      if (/^0[0-9]:/.test(m.kickoff || "") && global.CC_ODDS && CC_ODDS.addDays) {
+        const prev = ymdOf(CC_ODDS.addDays(m.date, -1));
+        if (prev.length === 8) days[prev] = true;
+      }
+    });
+    return Object.keys(days);
+  }
+
+  async function fillHalfScores(list, byId) {
+    const need = (list || []).filter((m) => (m.score || m.liveState === "ft") && !m.htScore && (m.matchId || (newsOf(m).matchId)));
+    for (let i = 0; i < need.length && i < 12; i += 1) {
+      const m = need[i];
+      const id = m.matchId || newsOf(m).matchId;
+      if (!id) continue;
+      try {
+        const ht = htFromDetails(await fetchFotmobMatch(id));
+        if (ht) {
+          m.htScore = ht;
+          if (byId[String(id)]) byId[String(id)].htScore = ht;
+        }
+      } catch (err) {
+        // 半场比分源拦了就下一轮。
+      }
     }
   }
 
   async function pullScores(matches) {
     const list = matches || [];
-    const days = [...new Set(list.map((m) => ymdOf(m.date)).filter((d) => d.length === 8))];
+    const days = scoreDays(list);
     if (!days.length) return list;
     const byId = {};
     const byHome = {};
@@ -226,9 +295,10 @@
     }
     list.forEach((m) => {
       const news = newsOf(m);
-      const hit = (news.matchId && byId[String(news.matchId)]) || (news.homeId && byHome[String(news.homeId)]);
+      const hit = (m.matchId && byId[String(m.matchId)]) || (news.matchId && byId[String(news.matchId)]) || (news.homeId && byHome[String(news.homeId)]);
       stampLive(m, hit);
     });
+    await fillHalfScores(list, byId);
     return list;
   }
 

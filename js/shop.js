@@ -159,9 +159,16 @@
     }).join("");
   }
 
+  function scoreText(m) {
+    const ft = String(m.score || m.liveScore || "").replace(/：/g, "-").replace(/:/g, "-");
+    const ht = String(m.htScore || m.halfScore || "").replace(/：/g, "-").replace(/:/g, "-");
+    if (ft && ht) return ft + "(" + ht + ")";
+    return ft;
+  }
+
   function liveMark(m) {
-    if (m.liveState === "live") return `<span class="shop-pill live">${esc(m.liveScore || "0-0")} ${esc(m.liveMinute || "")}</span>`;
-    if (m.score) return `<span class="shop-result">${esc(m.score)}</span>`;
+    if (m.liveState === "live") return `<span class="shop-pill live">${esc(scoreText(m) || m.liveScore || "0-0")} ${esc(m.liveMinute || "")}</span>`;
+    if (m.score) return `<span class="shop-result">${esc(scoreText(m))}</span>`;
     return "";
   }
 
@@ -236,7 +243,7 @@
           <div class="shop-sg-hd"><span>${esc(m.league || "")} · ${esc(m.slot || m.code || "")}</span><span>${esc(m.date || "")} ${esc(m.kickoff || "")}</span></div>
           <div class="shop-sg-teams">
             <span>${esc(m.home)}</span>
-            <span class="shop-sg-score">${esc(m.score || "-:-")}</span>
+            <span class="shop-sg-score">${esc(scoreText(m) || "-:-")}</span>
             <span>${esc(m.away)}</span>
           </div>
           ${predPills(m)}
