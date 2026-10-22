@@ -466,10 +466,25 @@
   }
 
   function jumpLive() {
+    const t = today();
+    const by = {};
+    all().forEach((m) => {
+      const k = issueKey(m);
+      if (!k) return;
+      by[k] = by[k] || { n: 0, done: 0 };
+      by[k].n += 1;
+      if (m.score || m.result) by[k].done += 1;
+    });
+    const todayKeys = Object.keys(by).filter((k) => k === t || all().some((m) => issueKey(m) === k && m.date === t));
+    todayKeys.sort((a, b) => (by[b].done - by[a].done) || (by[b].n - by[a].n) || b.localeCompare(a));
+    if (todayKeys[0] && by[todayKeys[0]].done >= 5) {
+      state.date = todayKeys[0];
+      return;
+    }
     if (all().some((m) => issueKey(m) === state.date)) return;
     const live = all().filter((m) => m.source === "live" && !m.result);
     const ds = [...new Set(live.map(issueKey).filter(Boolean))].sort();
-    const now = today();
+    const now = t;
     if (ds.length) state.date = ds.find((d) => d >= now) || ds[0];
     else {
       const allD = dates();

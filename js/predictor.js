@@ -1056,7 +1056,7 @@
   function backfillMarkets(m) {
     if (!m || m.source === "sfc-history") return;
     if ((m.ttgPicks || []).length >= 2 && (m.ftScores || []).length >= 2 && (m.hafuPicks || []).length) return;
-    const o = spOf(m);
+    const o = spOf(m) || priorOdds(m.league);
     if (!o) return;
     const line = (m._mk && m._mk.line != null) ? m._mk.line : (n(m.handicap) || 0);
     fillMarkets(m, m._mk || {}, o, line, true);

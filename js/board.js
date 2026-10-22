@@ -178,12 +178,12 @@
 
   function pruneAndSave() {
     if (!global.CC_DATA || !CC_DATA.jczq) return [];
-    const list = collapseTwins(pruneList((CC_DATA.jczq.matches || []).filter((m) => m.source !== "hist" && m.source !== "sfc-history")));
-    list.forEach((m) => {
+    const all = collapseTwins(pruneList((CC_DATA.jczq.matches || []).filter((m) => m.source !== "sfc-history")));
+    all.forEach((m) => {
       if (global.CC_ODDS && CC_ODDS.stampIssue) CC_ODDS.stampIssue(m);
     });
-    CC_DATA.jczq.matches = list;
-    return save(list);
+    CC_DATA.jczq.matches = all;
+    return save(all.filter((m) => m.source !== "hist"));
   }
 
   global.CC_BOARD = { DAYS, today, cutIso, inWindow, keyOf, load, pruneAndSave, pruneList, save, collapseTwins };
