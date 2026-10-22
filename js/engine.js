@@ -103,10 +103,10 @@
     const open = ticks[0];
     const last = ticks[ticks.length - 1] || { h: o.h, d: o.d, a: o.a, ah: null, ou: null };
     const flow = moneyFlow(open, last);
-    const eu = hottest({ h: last.h, d: last.d, a: last.a });
-    const ah = ahSide(last);
-    const ou = ouSide(last);
-    const fight = (eu === "home" && ah === "away") || (eu === "away" && ah === "home");
+    const eu = hottest(o);
+    const ah = "even";
+    const ou = "even";
+    const fight = false;
     const keys = pickKeys(m.pick);
     const cover = comboOdds(o, keys);
     const mainOdds = keys.length === 1 ? o[keys[0]] : cover;
@@ -114,30 +114,18 @@
     const reasons = [];
     let gate = "可以看";
 
-    if (fight) {
-      gate = "别碰";
-      reasons.push("欧赔和亚盘指向两边，线人自己在吵。");
-    } else if (eu === "even" && ah === "even") {
+    if (eu === "even") {
       gate = "路过";
-      reasons.push("两边差不多，信号不明，先路过。");
-    } else if (m.env === "掺局区" && !((eu === "home" && ah === "home") || (eu === "away" && ah === "away"))) {
-      gate = "路过";
-      reasons.push("掺局区没有欧亚同向，先路过。");
+      reasons.push("竞彩三项对开，先看十一点有没有边。");
     }
 
-    if (keys.length === 1 && mainOdds < 1.5) {
-      gate = gate === "别碰" ? "别碰" : "不出手";
-      reasons.push("单选赔不到 1.5，赢了也赚不到。");
-    } else if (keys.length >= 2 && cover != null && cover < 1.3) {
-      gate = gate === "别碰" ? "别碰" : "不出手";
-      reasons.push("买两边折下来不到 1.3，等于低赔。");
-    } else if (keys.length === 1 && mainOdds < 1.8) {
-      if (gate === "可以看") gate = "不出手";
-      reasons.push("赔率低于 1.8 的热门，长期不赚钱。");
+    if (keys.length >= 2 && cover != null && cover < 1.3) {
+      gate = "不出手";
+      reasons.push("买两边折下来不到 1.3，这笔不玩。");
     }
 
     if (!reasons.length) {
-      reasons.push(eu === ah || ah === "even" ? "欧亚没打架，可以看。" : "欧亚大体同向，可以看。");
+      reasons.push("按十一点出号，不用欧亚对打。");
     }
 
     const moneySide = fair.h >= fair.a && fair.h >= fair.d ? "主" : fair.a >= fair.d ? "客" : "平";

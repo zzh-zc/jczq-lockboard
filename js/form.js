@@ -132,9 +132,9 @@
     set("伤停轮换", pack ? (injText(hs.injuries, "主队") + "。" + injText(as.injuries, "客队") + "。名单伤停通常已定价，出战成疑才单看。") : "未知。");
     set("赛程", sch.text);
     set("阵容特性", shape.text);
-    set("重要程度", m.will.gap === "都重" ? "两边都要，禁止单边编故事。" : (m.will.gap === "都轻" ? "两边都可能降档，先路过。" : (m.will.gap === "主更重" || m.will.gap === "客更重" || m.will.gap === "主更轻" || m.will.gap === "客更轻" ? "一边看得更重，跟战意不败。" : "战意差不多，听盘口。")));
+    set("重要程度", m.will.gap === "都重" ? "两边都要，禁止单边编故事。" : (m.will.gap === "都轻" ? "两边都可能降档，先路过。" : (m.will.gap === "主更重" || m.will.gap === "客更重" || m.will.gap === "主更轻" || m.will.gap === "客更轻" ? "一边看得更重，跟战意不败。" : "战意差不多，看其余十点。")));
     set("发布会", press.text);
-    set("SP", m.sp ? (m.sp + "。服务于读盘，不是最后找补。") : "未知。");
+    set("SP", m.sp ? (m.sp + "。竞彩即时三项，胶着就双选或路过。") : "未知。");
     m.draft = {
       clashWill: (m.will.gap === "主更重" || m.will.gap === "客更轻") ? "home" : ((m.will.gap === "客更重" || m.will.gap === "主更轻") ? "away" : ""),
       bothHeavy: m.will.gap === "都重",

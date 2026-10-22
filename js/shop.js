@@ -223,10 +223,8 @@
     const list = dayList();
     $("shopMain").innerHTML = list.map((m) => {
       const f = fair(m);
-      const e = m.engine || (global.CC_ENGINE && CC_ENGINE.read(m)) || {};
       const h = pct(f.h); const d = pct(f.d); const a = pct(f.a);
       const mx = Math.max(h, d, a);
-      const mk = m.market || {};
       return `
         <article class="shop-card">
           <div class="shop-card-top">
@@ -243,9 +241,8 @@
           <div class="shop-wind-meta">
             <span>SP ${esc(m.sp || "—")}</span>
             <span>让 ${esc(m.handicap || "0")}</span>
-            <span>欧 ${esc(global.CC_ENGINE ? CC_ENGINE.sideLabel(e.eu) : "—")} / 亚 ${esc(global.CC_ENGINE ? CC_ENGINE.sideLabel(e.ah) : "—")}</span>
-            <span>${esc(e.fight ? "欧亚拧着" : "同向")}</span>
-            <span>${esc(mk.quake || "走势未知")}</span>
+            <span>战意 ${esc((m.will && m.will.gap) || "不明")}</span>
+            <span>${esc(m.tag || "")}</span>
           </div>
           <div class="shop-bars">
             ${barRow("胜", h, h === mx)}

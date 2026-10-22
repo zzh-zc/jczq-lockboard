@@ -16,12 +16,6 @@
     return m.intel || (global.CC_NEWS && CC_NEWS.lookup(m)) || null;
   }
 
-  function engineOf(m) {
-    if (m.engine) return m.engine;
-    if (global.CC_ENGINE) return CC_ENGINE.read(m);
-    return null;
-  }
-
   function factor(m, name) {
     return ((m.factors || []).find((f) => f.name === name) || {}).text || "";
   }
@@ -135,23 +129,15 @@
     };
   }
 
-  function lamp(m) {
-    const mk = m.market || {};
-    const light = mk.light || m.light || "yellow";
-    if (light === "green") return "🟢 稳";
-    if (light === "red") return "🔴 别碰热门单边";
-    return "🟡 胶着";
-  }
-
   function analysisHtml(m, ui) {
     const pack = packOf(m);
     const hs = (pack && pack.homeSide) || {};
     const as = (pack && pack.awaySide) || {};
     const f = ui.fair(m);
     const poi = poissonBlock(m, hs, as);
-    const e = engineOf(m);
     const will = (m.will && m.will.text) || factor(m, "战意") || "未知。";
-    const why = (m.why || []).filter((x) => x.from === "结论" || x.from === "灯" || x.from === "出手闸门");
+    const eleven = ["战意", "利益关系", "赛事优先级", "实力", "主客", "伤停轮换", "赛程", "阵容特性", "重要程度", "发布会", "SP"];
+    const why = (m.why || []).filter((x) => x.from === "结论");
     return `
       <div class="shop-block"><h3>队伍的实力</h3>
         <p>${esc(sideLine(m.home, hs, "主场"))}</p>
@@ -179,11 +165,13 @@
       <div class="shop-block"><h3>进球效率预测</h3>
         <p>比分倾向 ${esc(ui.crsText(m))}，总进球 ${esc(ui.ttgText(m))}，半全场 ${esc(ui.hafuText ? ui.hafuText(m) : ((m.hafuPicks || []).join("/") || "—"))}。期望总进球 ${(Number(poi.lh) + Number(poi.la)).toFixed(1)}。</p>
       </div>
+      <div class="shop-block"><h3>十一点底稿</h3>
+        ${eleven.map((name) => `<p>●${esc(name)}　${esc(factor(m, name) || "未知。")}</p>`).join("")}
+      </div>
       <div class="shop-block"><h3>综合分析</h3>
-        <p>${esc(lamp(m))}　方向 ${esc((m.market && m.market.drift) || (e && ("钱站" + e.moneySide)) || "未知")}　分歧 ${esc((m.market && m.market.veto) || (e && e.fight ? "欧亚拧着" : "抱团"))}　走势 ${esc((m.market && m.market.quake) || "暂时没变")}</p>
         <p>倾向 ${esc(ui.hadText(m))}，动作 ${esc(m.action || "")}。${esc(m.steady || m.tag || "")}</p>
         ${why.map((x) => `<p>${esc(x.from)}：${esc(x.fact)} → ${esc(x.so)}</p>`).join("")}
-        <p class="shop-note">只整理盘口和公开近况，不做投注引导。</p>
+        <p class="shop-note">按战意到 SP 这十一点出号，不用欧盘亚盘对打。不做投注引导。</p>
       </div>
     `;
   }

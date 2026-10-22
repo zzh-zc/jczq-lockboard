@@ -14,12 +14,6 @@
     return "draw";
   }
 
-  function ahFav(line) {
-    if (line < -0.1) return "home";
-    if (line > 0.1) return "away";
-    return "even";
-  }
-
   function sidesOf(pick) {
     const p = String(pick || "");
     const set = [];
@@ -341,26 +335,17 @@
     const o = { h: n(raw.had.h), d: n(raw.had.d), a: n(raw.had.a) };
     const line = n((raw.hhad || {}).goalLineValue || (raw.hhad || {}).goalLine) || 0;
     const eu = hottest(o);
-    const ah = ahFav(line);
-    const fight = (eu === "home" && ah === "away") || (eu === "away" && ah === "home");
     const env = MIX.test(raw.league) ? "掺局区" : "高可信";
     const sp = fmtSp(o);
-    const books = raw.books500 || null;
-    const shake = (books && books.quake) || quake(raw.had);
-    const veto = !!(books && books.veto);
-    const locked = decide(eu, fight || veto, env, o, ah);
+    const shake = quake(raw.had);
+    const locked = decide(eu, env, o);
     stamp(locked, raw, sp, env);
     fillMarkets(locked, raw, o, line);
-    locked.ticks = ticksOf(o, ah, books, line);
+    locked.ticks = ticksOf(o, line);
     locked.action = actionOf(locked);
-    locked.summary = summarize(locked, eu, ah, fight, veto, sp, shake, books);
-    locked.market = marketOf(locked, eu, ah, fight, veto, shake, books);
-    locked.factors = [
-      { name: "SP", text: `${sp}。让球 ${locked.handicap || "0"}。欧 ${eu} 亚 ${ah}。` },
-      { name: "伤停轮换", text: "未知。算法不拿空伤停改号。" },
-      { name: "发布会", text: "未知。" },
-      { name: "战意", text: "未知。等新闻和近况补。" },
-    ];
+    locked.summary = summarize(locked, eu, sp, shake);
+    locked.market = marketOf(locked, eu, shake);
+    locked.factors = blankFactors(sp, locked.handicap);
     return locked;
   }
 
@@ -389,21 +374,20 @@
     if (raw.result) locked.result = raw.result;
   }
 
-  function ahQuotes(line, ah) {
-    if ((line != null && line < -0.1) || ah === "home") return { home: 0.80, away: 1.00 };
-    if ((line != null && line > 0.1) || ah === "away") return { home: 1.00, away: 0.80 };
-    return { home: 1.00, away: 1.00 };
+  function FACTORS_11() {
+    return ["战意", "利益关系", "赛事优先级", "实力", "主客", "伤停轮换", "赛程", "阵容特性", "重要程度", "发布会", "SP"];
   }
 
-  function ticksOf(o, ah, books, line) {
-    const open = books && books.avgOpen ? books.avgOpen : o;
-    const now = books && books.avgNow ? books.avgNow : o;
-    const fake = ahQuotes(line, ah);
-    const ahOpen = open.kh ? { home: open.kh, away: open.ka } : fake;
-    const ahNow = now.kh ? { home: now.kh, away: now.ka } : fake;
+  function blankFactors(sp, handicap) {
+    return FACTORS_11().map((name) => ({
+      name: name,
+      text: name === "SP" ? ((sp || "未知") + "。竞彩即时三项。让球 " + (handicap || "0") + "。") : "未知。",
+    }));
+  }
+
+  function ticksOf(o, line) {
     return [
-      { t: "初盘", h: open.h, d: open.d, a: open.a, ah: ahOpen, ou: { over: open.h, under: open.a }, vol: 8 },
-      { t: "即时", h: now.h, d: now.d, a: now.a, ah: ahNow, ou: { over: now.h, under: now.a }, vol: 12 },
+      { t: "竞彩SP", h: o.h, d: o.d, a: o.a, ah: null, ou: null, vol: 10, line: line || 0 },
     ];
   }
 
@@ -413,38 +397,22 @@
     return { pick: "主/平", dual: true };
   }
 
-  function together(eu, ah) {
-    return (eu === "home" && ah === "home") || (eu === "away" && ah === "away");
-  }
-
-  function decide(eu, red, env, o, ah) {
-    const ahSide = ah || "even";
-    const aligned = together(eu, ahSide);
-    let out;
+  function decide(eu, env, o) {
     if (env === "掺局区" || eu === "even") {
-      out = {
+      return {
         pick: eu === "even" ? "主/客" : eu === "away" ? "平/客" : "主/平",
         dual: true, paperOppose: false, tag: eu === "even" ? "对开" : "胶着", light: "yellow",
-        lock: !red && env === "掺局区" ? aligned : !red && eu !== "even",
+        lock: env !== "掺局区",
       };
-    } else if (eu === "draw") {
-      out = { pick: "主/平", dual: true, paperOppose: false, tag: "偏平", light: "yellow", lock: !red };
-    } else {
-      const side = eu === "away" ? o.a : o.h;
-      const can = !red && (aligned || ahSide === "even");
-      out = side < 1.8
-        ? { pick: eu === "away" ? "平/客" : "主/平", dual: true, paperOppose: false, tag: "低赔不单", light: "yellow", lock: can }
-        : { pick: eu === "away" ? "客" : "主", dual: false, paperOppose: false, tag: "跟一边", light: "green", lock: can };
     }
-    if (!red) return out;
-    const cover = undefeated(eu);
-    out.pick = cover.pick;
-    out.dual = true;
-    out.lock = false;
-    out.light = "red";
-    out.paperOppose = true;
-    out.tag = "别碰热门";
-    return out;
+    if (eu === "draw") {
+      return { pick: "主/平", dual: true, paperOppose: false, tag: "偏平", light: "yellow", lock: true };
+    }
+    const side = eu === "away" ? o.a : o.h;
+    if (side < 1.8) {
+      return { pick: eu === "away" ? "平/客" : "主/平", dual: true, paperOppose: false, tag: "低赔不单", light: "yellow", lock: true };
+    }
+    return { pick: eu === "away" ? "客" : "主", dual: false, paperOppose: false, tag: "跟一边", light: "green", lock: true };
   }
 
   function asHandicap(pick) {
@@ -457,34 +425,19 @@
       .replace(/^平$/, "让平");
   }
 
-  function marketOf(m, eu, ah, fight, veto, shake, books) {
+  function marketOf(m, eu, shake) {
     const drift = eu === "even" ? "两边差不多" : ("偏" + (eu === "away" ? "客" : eu === "draw" ? "平" : "主"));
-    if (m.light === "red") {
-      const why = [];
-      if (fight) why.push("欧亚打架");
-      if (veto) why.push("平博和平均盘拧着");
-      return {
-        light: "red", drift: drift, veto: why.join(" · ") || "公司吵架", quake: shake,
-        note: "市场标红：热门单边不可信。倾向写下看出手，动作是别碰。",
-      };
+    if (m.light === "green") {
+      return { light: "green", drift: drift, veto: "十一点有边", quake: shake, note: "内容同向，跟一边。" };
     }
-    const pin = books && global.CC_BOOKS ? CC_BOOKS.label(books.pinSide) : "";
-    const avg = books && global.CC_BOOKS ? CC_BOOKS.label(books.avgSide) : "";
-    const vetoTxt = pin && avg ? ("平博" + pin + " / 平均" + avg) : (eu === "even" ? "对开" : "没一边倒");
-    if (m.light === "yellow") {
-      return { light: "yellow", drift: drift, veto: vetoTxt, quake: shake, note: m.env === "掺局区" ? "掺局区少买，不进长串。" : "买两边，或者路过。" };
-    }
-    return { light: "green", drift: drift, veto: "欧亚同向" + (pin ? " · 平博" + pin : ""), quake: shake, note: "可以跟一边。1.3 以下别梭哈。" };
+    return {
+      light: "yellow", drift: drift, veto: eu === "even" ? "对开" : "内容胶着",
+      quake: shake, note: m.env === "掺局区" ? "掺局区少买，不进长串。" : "先看十一点，胶着就路过。",
+    };
   }
 
-  function summarize(m, eu, ah, fight, veto, sp, shake, books) {
-    const bits = [sp, "锁 " + String(m.pick || "").replace(/主/g, "胜").replace(/客/g, "负"), "胜平负 " + (m.hadPicks || []).join("/"), "让球 " + (m.hhadPicks || []).join("/"), shake];
-    if (books && books.avgOpen && books.avgNow) {
-      bits.push("平均初盘 " + books.avgOpen.h.toFixed(2) + " → 即时 " + books.avgNow.h.toFixed(2));
-    }
-    if (fight) bits.push("欧亚打架");
-    if (veto) bits.push("百家背离");
-    if (m.light === "red") bits.push("红灯只警告热门单边，锁号仍给");
+  function summarize(m, eu, sp, shake) {
+    const bits = [sp, "锁 " + String(m.pick || "").replace(/主/g, "胜").replace(/客/g, "负"), "胜平负 " + (m.hadPicks || []).join("/"), shake, "按十一点出号，不拿欧亚找补"];
     return bits.join("。") + "。";
   }
 
@@ -574,24 +527,17 @@
     if (!o.h || !o.d || !o.a) return null;
     const line = n(hh.goalLineValue || hh.goalLine) || 0;
     const had = { h: n((raw.had || {}).h), d: n((raw.had || {}).d), a: n((raw.had || {}).a) };
-    const euHad = had.h && had.d && had.a ? hottest(had) : hottest(o);
     const eu = hottest(o);
-    const ah = ahFav(line);
-    const fight = (euHad === "home" && ah === "away") || (euHad === "away" && ah === "home");
     const env = MIX.test(raw.league) ? "掺局区" : "高可信";
-    const locked = decide(eu, fight, env, o, ah);
+    const locked = decide(eu, env, o);
     locked.pick = asHandicap(locked.pick);
     stamp(locked, raw, fmtSp(o), env);
     fillMarkets(locked, marketSrc(raw, twinOf(raw, jcList)), had.h ? had : o, line);
-    locked.ticks = ticksOf(had.h ? had : o, ah, null, line);
+    locked.ticks = ticksOf(had.h ? had : o, line);
     locked.action = actionOf(locked);
-    locked.summary = summarize(locked, eu, ah, fight, false, locked.sp, "北单让球盘", null);
-    locked.market = marketOf(locked, eu, ah, fight, false, "北单让球盘", null);
-    locked.factors = [
-      { name: "SP", text: `北单让球 ${locked.handicap || "0"} · ${locked.sp}` },
-      { name: "伤停轮换", text: "未知。" },
-      { name: "发布会", text: "未知。" },
-    ];
+    locked.summary = summarize(locked, eu, locked.sp, "北单让球盘");
+    locked.market = marketOf(locked, eu, "北单让球盘");
+    locked.factors = blankFactors(locked.sp, locked.handicap);
     return locked;
   }
 
@@ -611,7 +557,7 @@
     if (!o.h || !o.d || !o.a) o = { h: 2.40, d: 3.30, a: 2.50 };
     const eu = hottest(o);
     const env = MIX.test(raw.league) ? "掺局区" : "高可信";
-    const locked = decide(eu, false, env, o, "even");
+    const locked = decide(eu, env, o);
     if (!locked.dual) {
       const cover = undefeated(eu);
       locked.pick = cover.pick;
@@ -624,14 +570,10 @@
     locked.action = actionOf(locked);
     fillMarkets(locked, marketSrc(raw, twin), o, 0);
     locked.combo = toCombo(locked.pick);
-    locked.ticks = ticksOf(o, "even", null, 0);
-    locked.summary = summarize(locked, eu, "even", false, false, locked.sp, "胜负彩", null);
-    locked.market = marketOf(locked, eu, "even", false, false, "胜负彩", null);
-    locked.factors = [
-      { name: "SP", text: locked.sp },
-      { name: "伤停轮换", text: "未知。" },
-      { name: "发布会", text: "未知。" },
-    ];
+    locked.ticks = ticksOf(o, 0);
+    locked.summary = summarize(locked, eu, locked.sp, "胜负彩");
+    locked.market = marketOf(locked, eu, "胜负彩");
+    locked.factors = blankFactors(locked.sp, "0");
     return locked;
   }
 
@@ -811,16 +753,14 @@
   }
 
   function actionOf(m) {
-    const g = m.engine && m.engine.gate;
     const will = m.will || (global.CC_FORM && CC_FORM.willOf && CC_FORM.willOf(m));
     if (will && !m.will) m.will = will;
-    if (m.light === "red" || g === "别碰") return "别碰";
+    if (m.light === "red") return "别碰";
     if (m.lock === false || m.tag === "内容拧着" || m.tag === "两边降档" || m.tag === "折太低") return "路过";
     if (will && will.gap === "都轻") return "路过";
     if (m.env === "掺局区" || m.tag === "名额满才单") return "少买";
     if (m.tag === "战意改向" || m.tag === "战意定边" || m.tag === "跟一边") return m.dual ? "买两边" : "买一边";
     if (m.tag === "低赔不单" || m.tag === "胶着" || m.tag === "偏平") return "买两边";
-    if (g === "不出手" || g === "路过") return "路过";
     if (m.dual) return "买两边";
     if (m.light === "green") return "买一边";
     return "路过";
@@ -838,37 +778,12 @@
       return;
     }
     if (global.CC_ENGINE && !m.engine) m.engine = CC_ENGINE.read(m);
-    const e = m.engine;
     const why = [];
     why.push({
       from: "联赛环境",
       fact: (m.league || "") + " → " + (m.env || "未知"),
-      so: m.env === "掺局区" ? "默认胶着，禁止标绿单边进长串" : "高可信，欧亚同向才出单边",
+      so: m.env === "掺局区" ? "掺局区少买，不进长串" : "先填十一点，再锁号",
     });
-    if (e && global.CC_ENGINE) {
-      const h = CC_ENGINE.pct(e.fair.h);
-      const d = CC_ENGINE.pct(e.fair.d);
-      const a = CC_ENGINE.pct(e.fair.a);
-      why.push({
-        from: "竞彩即时 SP",
-        fact: (m.sp || "—") + "，去水后 主" + h + "% / 平" + d + "% / 客" + a + "%，抽水 " + (e.vig * 100).toFixed(1) + "%",
-        so: "钱站" + e.moneySide + "，这是方向，不是已经能买",
-      });
-      why.push({
-        from: "欧亚",
-        fact: "欧赔" + CC_ENGINE.sideLabel(e.eu) + " / 亚盘" + CC_ENGINE.sideLabel(e.ah) + (e.fight ? "，打架" : "，没拧着"),
-        so: e.fight ? "方向不可信，别碰热门单边" : "同向才允许跟",
-      });
-    }
-    const lamp = m.light === "green" ? "清楚" : m.light === "red" ? "别碰热门" : "胶着";
-    why.push({ from: "灯", fact: lamp + (m.tag ? " · " + m.tag : ""), so: m.light === "green" ? "可以写单边倾向" : m.light === "red" ? "热门单边不可信" : "只写不败，不写必胜" });
-    if (e && e.reasons && e.reasons.length) {
-      why.push({
-        from: "出手闸门",
-        fact: e.gate + (e.layer ? " · " + e.layer.label : ""),
-        so: e.reasons.join(""),
-      });
-    }
     writeWhyDraft(m, why);
     const act = actionOf(m);
     const pick = String(m.pick || "").replace(/主/g, "胜").replace(/客/g, "负");
@@ -882,11 +797,21 @@
     const order = ["战意", "利益关系", "赛事优先级", "实力", "主客", "伤停轮换", "赛程", "阵容特性", "重要程度", "发布会", "SP"];
     const bag = {};
     (m.factors || []).forEach((f) => { if (f && f.name) bag[f.name] = f.text; });
+    const soOf = {
+      战意: m.tag === "战意改向" || m.tag === "战意定边" ? "战意有边就改边，能单就单" : "两边一样就不另改号",
+      利益关系: "无硬证据写无，不猜假赛",
+      赛事优先级: "杯赛和联赛分开看谁更当回事",
+      实力: "近况硬软用来核对，不单拿排名博冷",
+      主客: "主场客场能力分开记",
+      伤停轮换: "名单伤停通常已知，点名不上才动号",
+      赛程: "一周多赛要降档",
+      阵容特性: "能磨还是能翻，只描述",
+      重要程度: "都重禁止编单边，都轻先路过",
+      发布会: "只收点名轮换",
+      SP: "竞彩即时三项，胶着就双选或路过",
+    };
     order.forEach((name) => {
-      const so = name === "战意"
-        ? (m.tag === "战意改向" || m.tag === "战意定边" ? "战意有边就改边，能单就单" : "战意同向或两边一样，不另改号")
-        : "底稿用来卡出手，不拿近况去博冷";
-      why.push({ from: name, fact: bag[name] || "未知", so: so });
+      why.push({ from: name, fact: bag[name] || "未知", so: soOf[name] || "按十一点核对" });
     });
     if (m.tag === "内容拧着" || m.tag === "两边降档" || m.tag === "折太低" || m.tag === "战意改向" || m.tag === "战意定边" || m.steady) {
       why.push({
