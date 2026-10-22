@@ -189,6 +189,14 @@ body { padding-bottom: 88px; }
   background: rgba(216,255,62,0.08); display: inline-block; padding: 4px 10px; border-radius: 999px;
 }
 .shop-block p, .shop-block li { color: #d9d5ea; font-size: 13px; line-height: 1.7; }
+.shop-rev { margin: 0 0 12px; padding: 12px; border-radius: 16px; background: rgba(216,255,62,0.08); border: 1px solid var(--line); }
+.shop-rev > b { display: block; color: var(--lime); font-size: 15px; margin-bottom: 10px; }
+.shop-rev-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.shop-rev-card { padding: 10px; border-radius: 12px; background: rgba(7,8,15,0.45); }
+.shop-rev-card span { display: block; color: var(--muted); font-size: 11px; }
+.shop-rev-card strong { display: block; color: var(--lime); font-size: 20px; margin: 4px 0 2px; }
+.shop-rev-card em { display: block; color: #d9d5ea; font-size: 11px; font-style: normal; }
+.shop-rev ul { margin: 10px 0 0; padding-left: 18px; color: #d9d5ea; font-size: 12px; line-height: 1.7; }
 .shop-sg { margin: 0 0 12px; padding: 12px; border-radius: 16px; background: rgba(255,255,255,0.04); border: 1px solid var(--line); }
 .shop-sg-hd { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
 .shop-sg-teams { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; font-weight: 700; }

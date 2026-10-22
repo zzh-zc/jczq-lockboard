@@ -982,6 +982,9 @@
         try { sfc = await CC_LIVE.pullSfc(); } catch (e2) { sfc = { matches: [], live: false, draw: "" }; }
         CC_PRED.applySfc(sfc, locked);
         CC_PRED.finish();
+        if (window.CC_REVIEW && CC_REVIEW.pullMonth) {
+          try { await CC_REVIEW.pullMonth(); } catch (e4) { /* 月样本用缓存 */ }
+        }
         if (window.CC_BOARD) CC_BOARD.pruneAndSave();
         if (window.CC_NEWS && CC_NEWS.pullLive) {
           try { await CC_NEWS.pullLive((CC_DATA.jczq && CC_DATA.jczq.matches) || [], { force: !!force }); } catch (e3) { /* 消息源拦了先用缓存 */ }
@@ -1040,6 +1043,7 @@
       const locked = CC_PRED.apply(CC_JC_CACHE);
       if (window.CC_SFC_CACHE) CC_PRED.applySfc(CC_SFC_CACHE, locked);
       CC_PRED.finish();
+      if (window.CC_REVIEW && CC_REVIEW.ingest) CC_REVIEW.ingest((CC_DATA.jczq && CC_DATA.jczq.matches) || []);
       if (window.CC_LIVE && CC_LIVE.pullScores) {
         CC_LIVE.pullScores(CC_DATA.jczq.matches).then(() => { render(); }).catch(() => {});
       }

@@ -1,5 +1,14 @@
 (function (global) {
   const MIX = /日职|日乙|J1|J2|韩K|K联|澳超|芬超|瑞超|挪超|挪甲|美职|中甲/;
+  const MID = /欧国联|英冠|欧罗巴|欧协|法乙|德乙/;
+
+  function envOf(league) {
+    if (global.CC_REVIEW && CC_REVIEW.envOf) return CC_REVIEW.envOf(league);
+    const g = String(league || "");
+    if (MIX.test(g)) return "掺局区";
+    if (MID.test(g)) return "中可信";
+    return "高可信";
+  }
 
   function n(x) {
     return global.CC_LIVE ? CC_LIVE.n(x) : parseFloat(x);
@@ -335,10 +344,10 @@
     const o = { h: n(raw.had.h), d: n(raw.had.d), a: n(raw.had.a) };
     const line = n((raw.hhad || {}).goalLineValue || (raw.hhad || {}).goalLine) || 0;
     const eu = hottest(o);
-    const env = MIX.test(raw.league) ? "掺局区" : "高可信";
+    const env = envOf(raw.league);
     const sp = fmtSp(o);
     const shake = quake(raw.had);
-    const locked = decide(eu, env, o);
+    const locked = decide(eu, env, o, raw.league);
     stamp(locked, raw, sp, env);
     fillMarkets(locked, raw, o, line);
     locked.ticks = ticksOf(o, line);
@@ -397,20 +406,25 @@
     return { pick: "主/平", dual: true };
   }
 
-  function decide(eu, env, o) {
-    if (env === "掺局区" || eu === "even") {
+  function decide(eu, env, o, league) {
+    const w = (global.CC_REVIEW && CC_REVIEW.weights && CC_REVIEW.weights()) || { singleMin: 1.85, drawish: /西甲/ };
+    const cover = eu === "away" ? "平/客" : "主/平";
+    if (env === "掺局区" || env === "中可信" || eu === "even") {
+      const evenAway = eu === "even" && o && o.h > o.a;
       return {
-        pick: eu === "even" ? "主/客" : eu === "away" ? "平/客" : "主/平",
-        dual: true, paperOppose: false, tag: eu === "even" ? "对开" : "胶着", light: "yellow",
+        pick: eu === "away" || evenAway ? "平/客" : "主/平",
+        dual: true, paperOppose: false,
+        tag: eu === "even" ? "对开" : (env === "中可信" ? "中可信双" : "胶着"),
+        light: "yellow",
         lock: env !== "掺局区",
       };
     }
-    if (eu === "draw") {
-      return { pick: "主/平", dual: true, paperOppose: false, tag: "偏平", light: "yellow", lock: true };
+    if (eu === "draw" || (w.drawish && w.drawish.test(String(league || "")) && eu === "home")) {
+      return { pick: "主/平", dual: true, paperOppose: false, tag: eu === "draw" ? "偏平" : "平多联赛", light: "yellow", lock: true };
     }
     const side = eu === "away" ? o.a : o.h;
-    if (side < 1.8) {
-      return { pick: eu === "away" ? "平/客" : "主/平", dual: true, paperOppose: false, tag: "低赔不单", light: "yellow", lock: true };
+    if (side < (w.singleMin || 1.85)) {
+      return { pick: cover, dual: true, paperOppose: false, tag: "低赔不单", light: "yellow", lock: true };
     }
     return { pick: eu === "away" ? "客" : "主", dual: false, paperOppose: false, tag: "跟一边", light: "green", lock: true };
   }
@@ -432,7 +446,7 @@
     }
     return {
       light: "yellow", drift: drift, veto: eu === "even" ? "对开" : "内容胶着",
-      quake: shake, note: m.env === "掺局区" ? "掺局区少买，不进长串。" : "先看十一点，胶着就路过。",
+      quake: shake, note: m.env !== "高可信" ? "中可信/掺局区少买，不进长串。" : "先看十一点，胶着就路过。",
     };
   }
 
@@ -468,7 +482,8 @@
     const extras = list.filter((m) => m.dual).sort((a, b) => (keep[a.tag] != null ? keep[a.tag] : 9) - (keep[b.tag] != null ? keep[b.tag] : 9));
     while (list.filter((m) => m.dual).length > limit && extras.length) {
       const m = extras.pop();
-      if (m.env === "掺局区") continue;
+      if (m.env === "掺局区" || m.env === "中可信") continue;
+      if (/低赔不单|对开|偏平|稳妥带平|中可信双|平多联赛/.test(m.tag || "")) continue;
       if ((keep[m.tag] != null ? keep[m.tag] : 9) <= 2) break;
       m.dual = false;
       collapsePick(m);
@@ -528,8 +543,8 @@
     const line = n(hh.goalLineValue || hh.goalLine) || 0;
     const had = { h: n((raw.had || {}).h), d: n((raw.had || {}).d), a: n((raw.had || {}).a) };
     const eu = hottest(o);
-    const env = MIX.test(raw.league) ? "掺局区" : "高可信";
-    const locked = decide(eu, env, o);
+    const env = envOf(raw.league);
+    const locked = decide(eu, env, o, raw.league);
     locked.pick = asHandicap(locked.pick);
     stamp(locked, raw, fmtSp(o), env);
     fillMarkets(locked, marketSrc(raw, twinOf(raw, jcList)), had.h ? had : o, line);
@@ -556,8 +571,8 @@
     }
     if (!o.h || !o.d || !o.a) o = { h: 2.40, d: 3.30, a: 2.50 };
     const eu = hottest(o);
-    const env = MIX.test(raw.league) ? "掺局区" : "高可信";
-    const locked = decide(eu, env, o);
+    const env = envOf(raw.league);
+    const locked = decide(eu, env, o, raw.league);
     locked.lock = true;
     stamp(locked, raw, fmtSp(o), env);
     locked.action = actionOf(locked);
@@ -693,8 +708,8 @@
     global.CC_DATA.jczq.version = (pack.booksOk ? "竞彩+500百家 " : "竞彩官方 SP ") + (pack.updatedAt || "");
     global.CC_DATA.jczq.date = locked[0] ? locked[0].date : global.CC_DATA.jczq.date;
     global.CC_DATA.jczq.buy = buyLines(locked);
-    global.CC_DATA.jczq.env = locked.some((m) => m.env === "掺局区") ? "含掺局区，少买。" : "高可信为主。一场一锁。";
-    const mix = locked.filter((m) => m.env === "掺局区").length;
+    global.CC_DATA.jczq.env = locked.some((m) => m.env !== "高可信") ? "含中可信/掺局区，少买。" : "高可信为主。一场一锁。";
+    const mix = locked.filter((m) => m.env !== "高可信").length;
     global.CC_DATA.jczq.dualLimit = mix > locked.length * 0.5 ? 1 : 0.5;
     global.CC_DATA._liveAt = pack.updatedAt;
     return all;
@@ -832,9 +847,9 @@
     if (m.light === "red") return "别碰";
     if (m.lock === false || m.tag === "内容拧着" || m.tag === "两边降档" || m.tag === "折太低") return "路过";
     if (will && will.gap === "都轻") return "路过";
-    if (m.env === "掺局区" || m.tag === "名额满才单") return "少买";
+    if (m.env === "掺局区" || m.env === "中可信" || m.tag === "名额满才单") return "少买";
     if (m.tag === "战意改向" || m.tag === "战意定边" || m.tag === "跟一边") return m.dual ? "买两边" : "买一边";
-    if (m.tag === "低赔不单" || m.tag === "胶着" || m.tag === "偏平") return "买两边";
+    if (m.tag === "低赔不单" || m.tag === "胶着" || m.tag === "偏平" || m.tag === "平多联赛" || m.tag === "对开") return "买两边";
     if (m.dual) return "买两边";
     if (m.light === "green") return "买一边";
     return "路过";
@@ -856,7 +871,7 @@
     why.push({
       from: "联赛环境",
       fact: (m.league || "") + " → " + (m.env || "未知"),
-      so: m.env === "掺局区" ? "掺局区少买，不进长串" : "先填十一点，再锁号",
+      so: m.env !== "高可信" ? "中可信/掺局区少买，不进长串" : "先填十一点，再锁号",
     });
     writeWhyDraft(m, why);
     const act = actionOf(m);
@@ -929,6 +944,9 @@
     });
     explainAll();
     refreshBuy();
+    if (global.CC_REVIEW && CC_REVIEW.ingest) {
+      CC_REVIEW.ingest((((global.CC_DATA || {}).jczq || {}).matches) || []);
+    }
     if (global.CC_RESULT && CC_RESULT.attachList) {
       ["jczq", "beidan", "r14", "r9"].forEach((key) => {
         CC_RESULT.attachList(((global.CC_DATA || {})[key] || {}).matches);

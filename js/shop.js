@@ -33,6 +33,10 @@
   }
 
   function dates() {
+    if (state.tab === "sg" && global.CC_REVIEW && CC_REVIEW.dates) {
+      const d = CC_REVIEW.dates();
+      if (d.length) return d.slice(-16);
+    }
     const have = [...new Set(all().map((m) => m.date).filter(Boolean))].sort();
     if (!have.length) return [today()];
     return have;
@@ -56,13 +60,17 @@
   }
 
   function dayChip(iso) {
-    const list = all().filter((m) => m.date === iso);
+    const fromBoard = all().filter((m) => m.date === iso);
+    const fromRev = (state.tab === "sg" && global.CC_REVIEW && CC_REVIEW.dayRows) ? CC_REVIEW.dayRows(iso) : [];
+    const list = fromBoard.length ? fromBoard : fromRev;
     const done = list.filter((m) => m.result || m.score);
-    const hit = done.filter((m) => hitOf(m) === true).length;
+    const hit = done.filter((m) => hitOf(m) === true && m.pick).length;
     const lab = iso === today() ? "今日" : wd(iso);
     if (!list.length) return { top: "--场", bot: lab + " " + md(iso) };
     if (!done.length) return { top: list.length + "场", bot: lab + " " + md(iso) };
-    return { top: done.length + "中" + hit, bot: lab + " " + md(iso) };
+    const locked = done.filter((m) => m.pick);
+    if (locked.length) return { top: locked.length + "中" + hit, bot: lab + " " + md(iso) };
+    return { top: done.length + "场", bot: lab + " " + md(iso) };
   }
 
   function logos(m) {
@@ -192,8 +200,10 @@
     const rows = global.CC_RESULT ? CC_RESULT.search("", state.date === TODAY ? "" : state.date) : [];
     const show = (state.date === TODAY ? rows.slice(0, 40) : rows.filter((r) => r.date === state.date));
     const ours = dayList().filter((m) => m.score || m.result);
-    const list = ours.length ? ours : show;
-    $("shopMain").innerHTML = list.map((m) => {
+    const reviewDay = (global.CC_REVIEW && CC_REVIEW.dayRows) ? CC_REVIEW.dayRows(state.date) : [];
+    const list = ours.length ? ours : (reviewDay.length ? reviewDay : show);
+    const head = global.CC_REVIEW && CC_REVIEW.summaryHtml ? CC_REVIEW.summaryHtml() : "";
+    $("shopMain").innerHTML = head + (list.map((m) => {
       const ok = hitOf(m);
       const res = m.result === "主" || m.result === "胜" ? "主胜" : m.result === "客" || m.result === "负" ? "客胜" : m.result === "平" ? "平局" : "";
       const lockBits = [];
@@ -212,12 +222,12 @@
           </div>
           <div class="shop-sg-foot">
             <span>${esc(res)}</span>
-            <span>${lockLine ? "锁 " + esc(lockLine) : "未锁"}</span>
+            <span>${lockLine ? "锁 " + esc(lockLine) : (m.source === "sfc-history" ? "月样本" : "未锁")}</span>
             <b class="${ok === true ? "hit" : ok === false ? "miss" : ""}">${ok === true ? "中" : ok === false ? "挂" : "—"}</b>
           </div>
         </article>
       `;
-    }).join("") || `<p class="shop-note">这一天还没有赛果。</p>`;
+    }).join("") || `<p class="shop-note">这一天还没有赛果。</p>`);
   }
 
   function barRow(lab, v, hot) {
