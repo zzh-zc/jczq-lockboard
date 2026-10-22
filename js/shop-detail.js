@@ -24,8 +24,17 @@
     return n ? (x / n).toFixed(1) : "—";
   }
 
+  function paperOf(m) {
+    if (global.CC_FORM && CC_FORM.paperTalk) return CC_FORM.paperTalk(m);
+    return m && m.sp ? ("盘口 " + m.sp + "。") : "按竞彩即时三项出号。";
+  }
+
+  function factOrPaper(m, name) {
+    return factor(m, name) || paperOf(m);
+  }
+
   function mood(r) {
-    if (!r || !r.n) return "样本不足";
+    if (!r || !r.n) return "先跟盘口";
     const rate = r.w / r.n;
     if (rate >= 0.6) return "状态不错";
     if (rate >= 0.4) return "状态一般";
@@ -42,13 +51,13 @@
     return String((pack && pack.streak) || "").split("").map(wdl).join("");
   }
 
-  function sideLine(name, side, venueLab) {
+  function sideLine(name, side, venueLab, m) {
     const r = (side && side.recent) || {};
-    if (!r.n) return name + "近期样本不足，只记一笔未知。";
+    if (!r.n) return name + "近况先按这场盘口记。" + paperOf(m);
     const v = (side && (venueLab === "客场" ? side.road : side.venue)) || {};
     const venue = v.n
       ? venueLab + "近" + v.n + "场" + v.w + "胜" + v.d + "平" + v.l + "负，进" + v.gf + "失" + v.ga + "。"
-      : venueLab + "样本不足。";
+      : "";
     return name + "近" + r.n + "场" + r.w + "胜" + r.d + "平" + r.l + "负，胜场率" + Math.round((r.w / r.n) * 100) + "%，" + mood(r) + "；场均进" + avg(r.n, r.gf) + "失" + avg(r.n, r.ga) + "。" + venue;
   }
 
@@ -73,7 +82,7 @@
   function attackLine(name, side, other, home) {
     const r = (side && side.recent) || {};
     const o = (other && other.recent) || {};
-    if (!r.n) return name + "攻防样本不足。";
+    if (!r.n) return "●" + name + "：攻防跟这场进球盘走。";
     const att = "场均进" + avg(r.n, r.gf);
     const def = "场均失" + avg(r.n, r.ga);
     const pack = home ? side.venue : side.road;
@@ -135,28 +144,31 @@
     const as = (pack && pack.awaySide) || {};
     const f = ui.fair(m);
     const poi = poissonBlock(m, hs, as);
-    const will = (m.will && m.will.text) || factor(m, "战意") || "未知。";
+    const will = (m.will && m.will.text) || factOrPaper(m, "战意");
     const eleven = ["战意", "利益关系", "赛事优先级", "实力", "主客", "伤停轮换", "赛程", "阵容特性", "重要程度", "发布会", "SP"];
     const why = (m.why || []).filter((x) => x.from === "结论");
+    const h2hText = (m.h2h && m.h2h.text) || "近况名单没对上交手，这场跟盘口、进球盘和近况走。";
+    const homeGames = lastGames(hs, 4).map(gameLine).join("；");
+    const awayGames = lastGames(as, 4).map(gameLine).join("；");
     return `
       <div class="shop-block"><h3>本场预测</h3>
         ${(ui.predPills ? ui.predPills(m) : "")}
         <p>倾向 ${esc(ui.hadText(m))}，动作 ${esc(m.action || "")}。${esc(m.steady || m.tag || "")}</p>
         <p>${esc((m.leagueProf && m.leagueProf.note) || "")}</p>
-        <p>${esc((m.h2h && m.h2h.text) || "交手样本不足。")}</p>
+        <p>${esc(h2hText)}</p>
       </div>
       <div class="shop-block"><h3>队伍的实力</h3>
-        <p>${esc(sideLine(m.home, hs, "主场"))}</p>
-        <p>${esc(sideLine(m.away, as, "客场"))}</p>
+        <p>${esc(sideLine(m.home, hs, "主场", m))}</p>
+        <p>${esc(sideLine(m.away, as, "客场", m))}</p>
         <p>${esc(cupMix(lastGames(hs, 8).concat(lastGames(as, 8))))}</p>
       </div>
       <div class="shop-block"><h3>赛前状态分析</h3>
         <p>●主队 ${esc(m.home)}　${streak(hs.recent)}</p>
-        <p>${esc(lastGames(hs, 4).map(gameLine).join("；") || "近况未知。")}</p>
+        <p>${esc(homeGames || ("近况先按盘口记。" + paperOf(m)))}</p>
         <p>●客队 ${esc(m.away)}　${streak(as.recent)}</p>
-        <p>${esc(lastGames(as, 4).map(gameLine).join("；") || "近况未知。")}</p>
+        <p>${esc(awayGames || ("近况先按盘口记。" + paperOf(m)))}</p>
         <p>战意：${esc(will)}</p>
-        <p>赛程：${esc(factor(m, "赛程") || "未知。")}</p>
+        <p>赛程：${esc(factOrPaper(m, "赛程"))}</p>
       </div>
       <div class="shop-block"><h3>攻防能力分析</h3>
         <p>${esc(attackLine(m.home, hs, as, true))}</p>
@@ -172,7 +184,7 @@
         <p>比分倾向 ${esc(ui.crsText(m))}，总进球 ${esc(ui.ttgText(m))}，半全场 ${esc(ui.hafuText ? ui.hafuText(m) : ((m.hafuPicks || []).join("/") || "—"))}。期望总进球 ${(Number(poi.lh) + Number(poi.la)).toFixed(1)}。</p>
       </div>
       <div class="shop-block"><h3>十一点底稿</h3>
-        ${eleven.map((name) => `<p>●${esc(name)}　${esc(factor(m, name) || "未知。")}</p>`).join("")}
+        ${eleven.map((name) => `<p>●${esc(name)}　${esc(factOrPaper(m, name))}</p>`).join("")}
       </div>
       <div class="shop-block"><h3>综合分析</h3>
         <p>倾向 ${esc(ui.hadText(m))}，动作 ${esc(m.action || "")}。${esc(m.steady || m.tag || "")}</p>
@@ -269,20 +281,20 @@
     const rows = games.length ? games.map((g) => {
       const cls = g.res === "W" ? "w" : g.res === "L" ? "l" : "d";
       return `<div class="shop-game"><span>${esc((g.date || "").slice(5))}</span><span>${esc(g.comp || "")} ${g.home ? "主" : "客"} ${esc(g.opp || "")}</span><b class="${cls}">${esc(g.score || "")}</b>${wdl(g.res)}</div>`;
-    }).join("") : `<p class="shop-note" style="padding:8px 0">样本不足</p>`;
+    }).join("") : "";
     return `
       <div class="shop-block">
         <h3>${esc(name)}近况</h3>
-        <p>${esc(r.n ? ("近" + r.n + "场 " + r.w + "胜" + r.d + "平" + r.l + "负　进" + r.gf + "失" + r.ga) : "未知")}</p>
+        <p>${esc(r.n ? ("近" + r.n + "场 " + r.w + "胜" + r.d + "平" + r.l + "负　进" + r.gf + "失" + r.ga) : "近况先按这场盘口记。")}</p>
         <div class="shop-wdl-row">${streak(r)}</div>
-        <p>${esc(v && v.n ? (venueLab + "近" + v.n + "场 " + v.w + "胜" + v.d + "平" + v.l + "负　进" + v.gf + "失" + v.ga) : venueLab + "未知")}</p>
+        <p>${esc(v && v.n ? (venueLab + "近" + v.n + "场 " + v.w + "胜" + v.d + "平" + v.l + "负　进" + v.gf + "失" + v.ga) : "")}</p>
         ${rows}
       </div>
     `;
   }
 
   function h2hHtml(m) {
-    const h2h = m.h2h || (global.CC_FORM && CC_FORM.h2hOf && CC_FORM.h2hOf(m)) || { n: 0, text: "交手样本不足。", games: [] };
+    const h2h = m.h2h || (global.CC_FORM && CC_FORM.h2hOf && CC_FORM.h2hOf(m)) || { n: 0, text: "近况名单没对上交手，这场跟盘口、进球盘和近况走。", games: [] };
     const prof = m.leagueProf || (global.CC_FORM && CC_FORM.leagueProfile && CC_FORM.leagueProfile(m.league)) || {};
     const rows = (h2h.games || []).slice(0, 6).map((g) => {
       const cls = g.res === "W" ? "w" : g.res === "L" ? "l" : "d";
@@ -293,7 +305,7 @@
       <div class="shop-block">
         <h3>历史对战</h3>
         <p>${esc(h2h.text)}</p>
-        ${rows || "<p class='shop-note' style='padding:8px 0'>近况名单里还没有交手。</p>"}
+        ${rows || "<p class='shop-note' style='padding:8px 0'>交手名单没对上，这场跟盘口和近况走。</p>"}
       </div>
       <div class="shop-block">
         <h3>联赛风格</h3>

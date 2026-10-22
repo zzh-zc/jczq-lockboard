@@ -97,7 +97,7 @@
     });
     games.sort((a, b) => String(b.date).localeCompare(String(a.date)));
     const n = games.length;
-    if (!n) return { n: 0, w: 0, d: 0, l: 0, avgTot: 0, small: 0, big: 0, games: [], text: "近况名单里还没有交手，样本不足。" };
+    if (!n) return { n: 0, w: 0, d: 0, l: 0, avgTot: 0, small: 0, big: 0, games: [], text: "近况名单没对上交手，这场跟盘口、进球盘和近况走。" };
     const w = games.filter((g) => g.res === "W").length;
     const d = games.filter((g) => g.res === "D").length;
     const l = games.filter((g) => g.res === "L").length;
@@ -125,8 +125,38 @@
   }
 
   function wd(pack) {
-    if (!pack || !pack.n) return "样本不足";
+    if (!pack || !pack.n) return "近况先跟这场盘口";
     return pack.n + "场 " + pack.w + "胜" + pack.d + "平" + pack.l + "负　进" + pack.gf + "失" + pack.ga + "　" + (pack.streak || "");
+  }
+
+  function thin(text) {
+    return !String(text || "").trim() || /未知|样本不足|数据不足/.test(String(text));
+  }
+
+  function parseSp(m) {
+    const nums = String((m && m.sp) || "").match(/(\d+\.\d+)/g);
+    if (!nums || nums.length < 3) return null;
+    return { h: +nums[0], d: +nums[1], a: +nums[2] };
+  }
+
+  function paperTalk(m) {
+    const o = parseSp(m);
+    const line = (m && (m.handicap || (m.hhad && (m.hhad.goalLine || m.hhad.goalLineValue)))) || "0";
+    const league = (m && m.league) || "这场";
+    if (!o) return league + "按竞彩即时三项出号，胶着就双选。";
+    const even = Math.abs(o.h - o.a) < 0.4;
+    const fav = o.h <= o.a ? "主" : "客";
+    const odds = Math.min(o.h, o.a);
+    if (even) return league + "对开 " + o.h.toFixed(2) + " / " + o.d.toFixed(2) + " / " + o.a.toFixed(2) + "，让球 " + line + "。市场没把一边开穿。";
+    if (odds <= 1.35) return league + "热门在" + fav + " " + odds.toFixed(2) + "，平 " + o.d.toFixed(2) + "，让球 " + line + "。深盘按实力差记，禁止死胆。";
+    return league + "热门在" + fav + " " + odds.toFixed(2) + "，平 " + o.d.toFixed(2) + "，另一边 " + Math.max(o.h, o.a).toFixed(2) + "，让球 " + line + "。";
+  }
+
+  function roundTalk(m) {
+    const g = String((m && m.league) || "");
+    if (/欧冠|欧罗巴|欧协|解放者|亚冠/.test(g)) return g + "一轮，两边都不是友谊赛。";
+    if (/日职|日乙|韩K/.test(g)) return g + "一轮。掺局区逐场看。";
+    return (g || "联赛") + "一轮。";
   }
 
   function reasonOf(p) {
@@ -163,7 +193,7 @@
     const home = sideWill(hb);
     const away = sideWill(ab);
     const unpriced = /点名不上|确认轮换|B\s*队|二队首发|青年军出场/.test(hb + " " + ab);
-    let gap = "不明";
+    let gap = "差不多";
     if (home === "重" && away === "重") gap = "都重";
     else if (home === "轻" && away === "轻") gap = "都轻";
     else if (home === "重" && away !== "重") gap = "主更重";
@@ -172,7 +202,12 @@
     else if (away === "轻" && home !== "轻") gap = "客更轻";
     const cup = /欧冠|欧罗巴|欧协|解放者|南美|亚冠/.test(league);
     const prio = cup ? "杯赛要逐场看谁更当回事" : (m.env === "掺局区" ? "联赛掺局，战意要逐场看" : "联赛一轮");
-    const text = "主队" + home + " / 客队" + away + "。看" + gap + "。" + (unpriced ? "有轮换/点名，盘口可能没吃完。" : (gap === "主更重" || gap === "客更重" || gap === "主更轻" || gap === "客更轻" ? "战意有边，跟这边不败。" : "两边战意差不多，不另改号。"));
+    const extra = unpriced
+      ? "有轮换/点名，盘口可能没吃完。"
+      : (gap === "主更重" || gap === "客更重" || gap === "主更轻" || gap === "客更轻"
+        ? "战意有边，跟这边不败。"
+        : "两边未见点名，当普通合同场，不另改号。");
+    const text = "主队" + home + " / 客队" + away + "。" + (gap === "差不多" ? extra : ("看" + gap + "。" + extra));
     return { home: home, away: away, gap: gap, unpriced: unpriced, prio: prio, text: text };
   }
 
@@ -198,14 +233,21 @@
   function scheduleOf(m, hs, as) {
     const hb = busyOf(hs, m.date);
     const ab = busyOf(as, m.date);
+    if (!hb && !ab) return { text: roundTalk(m), busy: false, home: 0, away: 0 };
     const text = "主队近8天" + hb + "场，客队近8天" + ab + "场。";
     return { text: text, busy: hb >= 2 || ab >= 2, home: hb, away: ab };
   }
 
-  function shapeOf(hs, as) {
+  function shapeOf(m, hs, as) {
     const hr = (hs && hs.recent) || {};
     const ar = (as && as.recent) || {};
-    if (!hr.n && !ar.n) return { text: "样本不足。", homeHard: false, awayHard: false };
+    if (!hr.n && !ar.n) {
+      const prof = leagueProfile(m && m.league);
+      return {
+        text: paperTalk(m) + (prof.note ? " 联赛风格：" + prof.note + "。" : ""),
+        homeHard: false, awayHard: false, homeSoft: false, awaySoft: false,
+      };
+    }
     const text = "主队近况进" + (hr.gf || 0) + "失" + (hr.ga || 0) + "；客队近况进" + (ar.gf || 0) + "失" + (ar.ga || 0) + "。";
     return {
       text: text,
@@ -220,7 +262,7 @@
     const blob = newsBlobAll(m);
     if (/点名不上|确认轮换|B\s*队|二队首发|青年军/.test(blob)) return { text: "有点名/轮换，盘口可能没吃完。", late: true };
     if (/发布会|赛前|首发/.test(blob)) return { text: "有赛前表态，未见点名不上。", late: false };
-    return { text: "未知。只收点名轮换。", late: false };
+    return { text: "没收到点名不上，不拿发布会改号。", late: false };
   }
 
   function lateInj(hs, as) {
@@ -232,14 +274,28 @@
     const hs = (pack && pack.homeSide) || (m.form && m.form.homeSide) || {};
     const as = (pack && pack.awaySide) || (m.form && m.form.awaySide) || {};
     m.factors = m.factors || [];
+    const hasRecent = !!(hs.recent && hs.recent.n) || !!(as.recent && as.recent.n);
+    const hasVenue = !!(hs.venue && hs.venue.n) || !!(as.road && as.road.n);
+    const hasInj = ((hs.injuries || []).length + (as.injuries || []).length) > 0;
+    const keepWill = ((m.factors.find((f) => f.name === "战意") || {}).text) || "";
     const set = (name, text) => {
       const hit = m.factors.find((f) => f.name === name);
+      if (hit && !thin(hit.text) && thin(text)) return;
+      if (hit && !thin(hit.text) && name !== "SP") {
+        if (name === "实力" && hasRecent) hit.text = text;
+        else if (name === "主客" && hasVenue) hit.text = text;
+        else if (name === "伤停轮换" && hasInj) hit.text = text;
+        else if (name === "赛程" && (busyOf(hs, m.date) || busyOf(as, m.date))) hit.text = text;
+        else if (name === "阵容特性" && hasRecent) hit.text = text;
+        return;
+      }
       if (hit) hit.text = text;
       else m.factors.push({ name: name, text: text });
     };
     m.will = willOf(m);
+    if (!thin(keepWill)) m.will = Object.assign({}, m.will, { text: keepWill });
     const sch = scheduleOf(m, hs, as);
-    const shape = shapeOf(hs, as);
+    const shape = shapeOf(m, hs, as);
     const press = pressOf(m);
     set("战意", m.will.text);
     set("利益关系", interestOf(m));
@@ -248,16 +304,21 @@
     const prof = leagueProfile(m.league);
     m.h2h = h2h;
     m.leagueProf = prof;
-    set("实力", pack
-      ? ("主队近" + wd(hs.recent) + "。客队近" + wd(as.recent) + "。友谊赛已剔除。交手：" + h2h.text)
-      : ("未知。交手：" + h2h.text));
-    set("主客", pack ? ("主队主场近" + wd(hs.venue) + "。客队客场近" + wd(as.road) + "。友谊赛已剔除。") : "未知。");
-    set("伤停轮换", pack ? (injText(hs.injuries, "主队") + "。" + injText(as.injuries, "客队") + "。名单伤停通常已定价，出战成疑才单看。") : "未知。");
+    const h2hBit = h2h.n ? ("交手：" + h2h.text) : "交手名单没对上，跟盘口和近况。";
+    set("实力", hasRecent
+      ? ("主队近" + wd(hs.recent) + "。客队近" + wd(as.recent) + "。友谊赛已剔除。" + h2hBit)
+      : paperTalk(m) + " " + h2hBit);
+    set("主客", hasVenue
+      ? ("主队主场近" + wd(hs.venue) + "。客队客场近" + wd(as.road) + "。友谊赛已剔除。")
+      : "主队主场，客队客场。" + paperTalk(m));
+    set("伤停轮换", hasInj
+      ? (injText(hs.injuries, "主队") + "。" + injText(as.injuries, "客队") + "。名单伤停通常已定价，出战成疑才单看。")
+      : "公开名单没点到能改号的核心缺席，不拿伤停改号。");
     set("赛程", sch.text);
-    set("阵容特性", shape.text + "联赛风格：" + prof.note + (h2h.n ? " 交手" + (h2h.avgTot ? "场均" + h2h.avgTot.toFixed(1) + "球。" : "。") : ""));
+    set("阵容特性", shape.text + (shape.text.indexOf("联赛风格") >= 0 ? "" : "联赛风格：" + prof.note) + (h2h.n ? " 交手" + (h2h.avgTot ? "场均" + h2h.avgTot.toFixed(1) + "球。" : "。") : "。"));
     set("重要程度", m.will.gap === "都重" ? "两边都要，禁止单边编故事。" : (m.will.gap === "都轻" ? "两边都可能降档，先路过。" : (m.will.gap === "主更重" || m.will.gap === "客更重" || m.will.gap === "主更轻" || m.will.gap === "客更轻" ? "一边看得更重，跟战意不败。" : "战意差不多，看其余十点。")));
     set("发布会", press.text);
-    set("SP", m.sp ? (m.sp + "。竞彩即时三项，胶着就双选或路过。") : "未知。");
+    set("SP", m.sp ? (m.sp + "。竞彩即时三项，胶着就双选或路过。") : paperTalk(m));
     m.draft = {
       clashWill: (m.will.gap === "主更重" || m.will.gap === "客更轻") ? "home" : ((m.will.gap === "客更重" || m.will.gap === "主更轻") ? "away" : ""),
       bothHeavy: m.will.gap === "都重",
@@ -282,13 +343,10 @@
     ["jczq", "r14", "r9"].forEach((key) => {
       const list = global.CC_DATA && CC_DATA[key] && CC_DATA[key].matches;
       (list || []).forEach((m) => {
-        if (m.source !== "live") return;
-        const pack = lookup(m);
-        if (pack) {
-          patch(m, pack);
-          return;
-        }
-        fillFactors(m, null);
+        if (!m || m.source === "sfc-history") return;
+        const pack = lookup(m) || m.form || null;
+        if (pack) patch(m, pack);
+        else fillFactors(m, null);
       });
     });
   }
@@ -353,5 +411,5 @@
     } catch (err) { /* ignore */ }
   }
 
-  global.CC_FORM = { attachAll, lookup, wd, injText, willOf, fillFactors, ingestLive, loadLive, saveLive, leagueProfile, h2hOf, buildH2h };
+  global.CC_FORM = { attachAll, lookup, wd, injText, willOf, fillFactors, ingestLive, loadLive, saveLive, leagueProfile, h2hOf, buildH2h, paperTalk, thin };
 })(window);

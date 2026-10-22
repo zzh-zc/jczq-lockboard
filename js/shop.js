@@ -294,7 +294,7 @@
           <div class="shop-wind-meta">
             <span>SP ${esc(m.sp || "—")}</span>
             <span>让 ${esc(m.handicap || "0")}</span>
-            <span>战意 ${esc((m.will && m.will.gap) || "不明")}</span>
+            <span>战意 ${esc((m.will && m.will.gap) || "差不多")}</span>
             <span>${esc(m.tag || "")}</span>
           </div>
           <div class="shop-bars">

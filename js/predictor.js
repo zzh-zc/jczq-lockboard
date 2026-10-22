@@ -58,7 +58,7 @@
   function h2hOf(m) {
     if (m && m.h2h && m.h2h.n) return m.h2h;
     if (global.CC_FORM && CC_FORM.h2hOf) return CC_FORM.h2hOf(m);
-    return { n: 0, text: "交手样本不足。" };
+    return { n: 0, text: "近况名单没对上交手，这场跟盘口、进球盘和近况走。" };
   }
 
   function formTotal(m) {
@@ -336,7 +336,7 @@
     locked.handicap = line ? (line > 0 ? "+" + line : String(line)) : locked.handicap || "";
     const prof = profOf(locked);
     const h2h = h2hOf(locked);
-    locked.scriptNote = (prof.note || "进球数跟进球盘。") + (h2h.n ? " " + h2h.text : " 交手样本不足。") + " 让球 " + (locked.handicap || "0") + "。";
+    locked.scriptNote = (prof.note || "进球数跟进球盘。") + (h2h.n ? " " + h2h.text : " 交手跟盘口和进球盘。") + " 让球 " + (locked.handicap || "0") + "。";
   }
 
   function realign(list) {
@@ -431,7 +431,7 @@
   function blankFactors(sp, handicap) {
     return FACTORS_11().map((name) => ({
       name: name,
-      text: name === "SP" ? ((sp || "未知") + "。竞彩即时三项。让球 " + (handicap || "0") + "。") : "未知。",
+      text: name === "SP" ? ((sp || "") + "。竞彩即时三项。让球 " + (handicap || "0") + "。") : "",
     }));
   }
 
@@ -985,7 +985,7 @@
 
   function formLine(side, key) {
     const p = side && side[key];
-    if (!p || !p.n) return "样本不足";
+    if (!p || !p.n) return "先跟盘口";
     return p.n + "场" + p.w + "胜" + p.d + "平" + p.l + "负";
   }
 
@@ -998,7 +998,7 @@
     const why = [];
     why.push({
       from: "联赛环境",
-      fact: (m.league || "") + " → " + (m.env || "未知"),
+      fact: (m.league || "") + " → " + (m.env || "高可信"),
       so: m.env !== "高可信" ? "中可信/掺局区少买，不进长串" : "先填十一点，再锁号",
     });
     writeWhyDraft(m, why);
@@ -1028,7 +1028,7 @@
       SP: "竞彩即时三项，胶着就双选或路过",
     };
     order.forEach((name) => {
-      why.push({ from: name, fact: bag[name] || "未知", so: soOf[name] || "按十一点核对" });
+      why.push({ from: name, fact: bag[name] || (m.sp ? m.sp : "按十一点核对"), so: soOf[name] || "按十一点核对" });
     });
     if (m.tag === "内容拧着" || m.tag === "两边降档" || m.tag === "折太低" || m.tag === "战意改向" || m.tag === "战意定边" || m.steady) {
       why.push({
@@ -1206,6 +1206,8 @@
       CC_REVIEW.ingest(((((global.CC_DATA || {}).jczq || {}).matches) || []).filter((m) => m.source !== "hist"));
     }
     hydrateHistory();
+    if (global.CC_FORM) CC_FORM.attachAll();
+    explainAll();
     if (global.CC_RESULT && CC_RESULT.attachList) {
       ["jczq", "beidan", "r14", "r9"].forEach((key) => {
         CC_RESULT.attachList(((global.CC_DATA || {})[key] || {}).matches);
