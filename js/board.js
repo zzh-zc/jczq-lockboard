@@ -81,6 +81,16 @@
         hit.score = hit.score || m.score;
       }
       if (!hit.pick && m.pick) hit.pick = m.pick;
+      if ((hit.score || hit.result || m.score || m.result) && m.ttgPicks && m.ttgPicks.length) {
+        hit.pick = m.pick || hit.pick;
+        hit.hadPicks = m.hadPicks || hit.hadPicks;
+        hit.ttgPicks = m.ttgPicks;
+        hit.ftOu = m.ftOu || m.ttgPicks;
+        hit.ftScores = m.ftScores || hit.ftScores;
+        hit.hafuPicks = m.hafuPicks || hit.hafuPicks;
+        hit.hhadPicks = m.hhadPicks || hit.hhadPicks;
+        hit._mk = m._mk || hit._mk;
+      }
     });
     return [...map.values()].sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.slot || "").localeCompare(String(b.slot || "")));
   }

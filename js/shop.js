@@ -94,18 +94,18 @@
     const raw = m.ttgPicks || m.ftOu || [];
     const nums = raw.map((x) => String(x).replace(/[^\d.]/g, "")).filter(Boolean);
     if (nums.length) return nums.map((n) => n + "球").join("/");
-    return "2球/3球";
+    return "";
   }
 
   function crsText(m) {
     const raw = (m.ftScores || []).slice(0, 3);
-    if (!raw.length) return "1:0/0:1";
+    if (!raw.length) return "";
     return raw.map((x) => String(x).replace(/-/g, ":")).join("/");
   }
 
   function hafuText(m) {
     const raw = (m.hafuPicks || m.htScores || []).slice(0, 2);
-    if (!raw.length) return "胜胜/平胜";
+    if (!raw.length) return "";
     return raw.join("/");
   }
 
@@ -149,20 +149,34 @@
 
   function liveMark(m) {
     if (m.liveState === "live") return `<span class="shop-pill live">${esc(m.liveScore || "0-0")} ${esc(m.liveMinute || "")}</span>`;
-    if (m.score) {
-      const ok = hitOf(m);
-      return `<span class="shop-result">${esc(m.score)}</span>${ok === true ? '<span class="shop-hit">中</span>' : ok === false ? '<span class="shop-miss">挂</span>' : ""}`;
-    }
+    if (m.score) return `<span class="shop-result">${esc(m.score)}</span>`;
+    return "";
+  }
+
+  function chipClass(ok) {
+    if (ok === true) return "shop-pill ok";
+    if (ok === false) return "shop-pill no";
+    return "shop-pill";
+  }
+
+  function chipMark(ok) {
+    if (ok === true) return "<i>中</i>";
+    if (ok === false) return "<i>挂</i>";
     return "";
   }
 
   function predPills(m) {
+    const ch = (global.CC_RESULT && CC_RESULT.chips) ? CC_RESULT.chips(m) : {};
+    const had = hadText(m);
+    const ttg = ttgText(m);
+    const crs = crsText(m);
+    const hafu = hafuText(m);
     return `
       <div class="shop-pills">
-        <span class="shop-pill">${esc(hadText(m))}</span>
-        <span class="shop-pill">${esc(ttgText(m))}</span>
-        <span class="shop-pill">${esc(crsText(m))}</span>
-        <span class="shop-pill">${esc(hafuText(m))}</span>
+        ${had ? `<span class="${chipClass(ch.had)}">${esc(had)}${chipMark(ch.had)}</span>` : ""}
+        ${ttg ? `<span class="${chipClass(ch.ttg)}">${esc(ttg)}${chipMark(ch.ttg)}</span>` : ""}
+        ${crs ? `<span class="${chipClass(ch.crs)}">${esc(crs)}${chipMark(ch.crs)}</span>` : ""}
+        ${hafu ? `<span class="${chipClass(ch.hafu)}">${esc(hafu)}${chipMark(ch.hafu)}</span>` : ""}
         ${liveMark(m)}
       </div>
     `;
@@ -206,12 +220,6 @@
     $("shopMain").innerHTML = head + (list.map((m) => {
       const ok = hitOf(m);
       const res = m.result === "主" || m.result === "胜" ? "主胜" : m.result === "客" || m.result === "负" ? "客胜" : m.result === "平" ? "平局" : "";
-      const lockBits = [];
-      if (m.pick || (m.hadPicks && m.hadPicks.length)) lockBits.push(hadText(m));
-      if ((m.ttgPicks || m.ftOu || []).length) lockBits.push(ttgText(m));
-      if ((m.ftScores || []).length) lockBits.push(crsText(m));
-      if ((m.hafuPicks || m.htScores || []).length) lockBits.push(hafuText(m));
-      const lockLine = lockBits.join("  ");
       return `
         <article class="shop-sg">
           <div class="shop-sg-hd"><span>${esc(m.league || "")} · ${esc(m.slot || m.code || "")}</span><span>${esc(m.date || "")} ${esc(m.kickoff || "")}</span></div>
@@ -220,9 +228,9 @@
             <span class="shop-sg-score">${esc(m.score || "-:-")}</span>
             <span>${esc(m.away)}</span>
           </div>
+          ${predPills(m)}
           <div class="shop-sg-foot">
             <span>${esc(res)}</span>
-            <span>${lockLine ? "锁 " + esc(lockLine) : (m.source === "sfc-history" ? "月样本" : "未锁")}</span>
             <b class="${ok === true ? "hit" : ok === false ? "miss" : ""}">${ok === true ? "中" : ok === false ? "挂" : "—"}</b>
           </div>
         </article>
@@ -328,7 +336,7 @@
   }
 
   function ui() {
-    return { fair, pct, hadText, ttgText, crsText, hafuText };
+    return { fair, pct, hadText, ttgText, crsText, hafuText, predPills };
   }
 
   function renderInfo() {

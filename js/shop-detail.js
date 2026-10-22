@@ -140,12 +140,7 @@
     const why = (m.why || []).filter((x) => x.from === "结论");
     return `
       <div class="shop-block"><h3>本场预测</h3>
-        <div class="shop-pills">
-          <span class="shop-pill">${esc(ui.hadText(m))}</span>
-          <span class="shop-pill">${esc(ui.ttgText(m))}</span>
-          <span class="shop-pill">${esc(ui.crsText(m))}</span>
-          <span class="shop-pill">${esc(ui.hafuText ? ui.hafuText(m) : ((m.hafuPicks || []).join("/") || "—"))}</span>
-        </div>
+        ${(ui.predPills ? ui.predPills(m) : "")}
         <p>倾向 ${esc(ui.hadText(m))}，动作 ${esc(m.action || "")}。${esc(m.steady || m.tag || "")}</p>
         <p>${esc((m.leagueProf && m.leagueProf.note) || "")}</p>
         <p>${esc((m.h2h && m.h2h.text) || "交手样本不足。")}</p>

@@ -35,8 +35,29 @@
       score: m.score || "",
       result: m.result || "",
       pick: m.pick || "",
+      hadPicks: m.hadPicks,
+      ttgPicks: m.ttgPicks,
+      ftOu: m.ftOu,
+      ftScores: m.ftScores,
+      hafuPicks: m.hafuPicks,
+      htScores: m.htScores,
+      htScore: m.htScore || m.halfScore,
       hit: m.hit,
     };
+  }
+
+  function isGhostMarkets(m) {
+    const nums = (m.ttgPicks || m.ftOu || []).map((x) => Number(String(x).replace(/[^\d]/g, ""))).filter((n) => Number.isFinite(n));
+    const scores = (m.ftScores || []).map(parseScore).filter(Boolean);
+    if (nums.length < 2 || scores.length < 2) return false;
+    return scores.every((s) => nums.indexOf(s.tot) < 0);
+  }
+
+  function scrubGhost(m) {
+    if (!m || (!m.score && !m.result) || !isGhostMarkets(m)) return;
+    m.ttgPicks = [];
+    m.ftOu = [];
+    m.ftScores = [];
   }
 
   function all() {
@@ -117,11 +138,34 @@
     });
   }
 
+  function hafuHit(m) {
+    const ht = parseScore(m && (m.htScore || m.halfScore));
+    const ft = parseScore(m && m.score);
+    if (!ht || !ft) return null;
+    const side = (h, a) => (h > a ? "胜" : h < a ? "负" : "平");
+    const lab = side(ht.h, ht.a) + side(ft.h, ft.a);
+    const picks = m.hafuPicks || m.htScores || [];
+    if (!picks.length) return null;
+    return picks.some((p) => String(p).replace(/\s/g, "") === lab);
+  }
+
+  function chips(m) {
+    if (!m || (!m.result && !m.score)) return { had: null, ttg: null, crs: null, hafu: null };
+    const hasTtg = ((m.ttgPicks || m.ftOu || []).length > 0);
+    const hasCrs = ((m.ftScores || []).length > 0);
+    return {
+      had: (m.pick || (m.hadPicks && m.hadPicks.length)) ? hadHit(m) : null,
+      ttg: hasTtg ? ttgHit(m) : null,
+      crs: hasCrs ? crsHit(m) : null,
+      hafu: hafuHit(m),
+    };
+  }
+
   function hitAny(m) {
     if (!m || (!m.result && !m.score)) return null;
     const hasPick = m.pick || (m.hadPicks && m.hadPicks.length) || (m.ftScores && m.ftScores.length) || (m.ttgPicks && m.ttgPicks.length);
     if (!hasPick) return null;
-    return !!(hadHit(m) || ttgHit(m) || crsHit(m));
+    return !!(hadHit(m) || ttgHit(m) || crsHit(m) || hafuHit(m) === true);
   }
 
   function reviewOf(m) {
@@ -148,9 +192,10 @@
         m.score = m.score || hit.score;
         m.result = m.result || hit.result;
       }
+      scrubGhost(m);
       reviewOf(m);
     });
   }
 
-  global.CC_RESULT = { all, search, lookup, attachList, hitOf, hitAny, hadHit, ttgHit, crsHit, parseScore, resultOf };
+  global.CC_RESULT = { all, search, lookup, attachList, hitOf, hitAny, hadHit, ttgHit, crsHit, hafuHit, chips, parseScore, resultOf, isGhostMarkets };
 })(window);

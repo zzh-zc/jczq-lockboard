@@ -315,6 +315,7 @@
   }
 
   function fillMarkets(locked, raw, hadOdds, line) {
+    if (locked && (locked.score || locked.result)) return;
     raw = raw || {};
     locked._mk = { crs: raw.crs, ttg: raw.ttg, hafu: raw.hafu, hhad: raw.hhad, had: hadOdds, line: line };
     const sides = sidesOf(locked.pick);
@@ -343,7 +344,7 @@
 
   function realign(list) {
     (list || []).forEach((m) => {
-      if (!m._mk) return;
+      if (!m._mk || m.score || m.result) return;
       fillMarkets(m, m._mk, m._mk.had, m._mk.line);
     });
   }
@@ -542,14 +543,30 @@
     ];
   }
 
+  function findOld(raw, olds) {
+    return (olds || []).find((o) => {
+      if (!o) return false;
+      if (o.slot && raw.slot && o.slot === raw.slot && (!o.date || !raw.date || o.date === raw.date)) return true;
+      return sameTeam(o.home, raw.home) && sameTeam(o.away, raw.away) && (!o.date || !raw.date || o.date === raw.date);
+    }) || null;
+  }
+
   function overlayNotes(live, olds) {
-    const hit = olds.find((o) => o.home === live.home && o.away === live.away && o.date === live.date);
+    const hit = findOld(live, olds);
     if (!hit) return;
     const text = ((hit.factors || []).find((f) => f.name === "伤停轮换") || {}).text || "";
     if (/点名|不上|B\s*队|官宣|确认轮换/.test(text)) {
       live.factors[1] = { name: "伤停轮换", text };
       live.summary += " 有未定价伤停，单独看。";
     }
+  }
+
+  function stampLiveOnto(prev, raw) {
+    if (raw.score) prev.score = raw.score;
+    if (raw.result) prev.result = raw.result;
+    prev.liveScore = raw.liveScore || prev.liveScore;
+    prev.liveState = raw.liveState || prev.liveState;
+    prev.liveMinute = raw.liveMinute || prev.liveMinute;
   }
 
   function coreName(s) {
@@ -717,9 +734,18 @@
   }
 
   function apply(pack) {
-    const locked = pack.matches.map(lockOne);
     const old = (global.CC_DATA.jczq && global.CC_DATA.jczq.matches) || [];
-    locked.forEach((m) => overlayNotes(m, old));
+    const locked = pack.matches.map((raw) => {
+      const prev = findOld(raw, old);
+      const done = raw.score || raw.result || (prev && (prev.score || prev.result));
+      if (prev && done && prev.pick) {
+        stampLiveOnto(prev, raw);
+        return prev;
+      }
+      const m = lockOne(raw);
+      overlayNotes(m, old);
+      return m;
+    });
     const keyOf = (m) => m.slot || [m.date, m.home, m.away].join("|");
     const seen = new Set(locked.map(keyOf));
     const keep = old.filter((m) => {
@@ -728,7 +754,7 @@
       if (!m.source) m.source = "board";
       return true;
     });
-    capDual(locked);
+    capDual(locked.filter((m) => !m.score && !m.result));
     realign(locked);
     realign(keep);
     let all = keep.concat(locked);
@@ -858,6 +884,7 @@
 
   function applySteady(m) {
     if (!m || m.source !== "live") return;
+    if (m.score || m.result) return;
     if (m.light === "red") return;
     if (global.CC_FORM && CC_FORM.fillFactors && !m.draft) CC_FORM.fillFactors(m, m.form);
     const d = m.draft || {};

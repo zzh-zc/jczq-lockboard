@@ -63,6 +63,10 @@
       action: m.action || "",
       result: m.result || "",
       score: m.score || "",
+      hadPicks: m.hadPicks,
+      ttgPicks: m.ttgPicks,
+      ftScores: m.ftScores,
+      hafuPicks: m.hafuPicks,
       source: m.source || "lock",
     };
   }

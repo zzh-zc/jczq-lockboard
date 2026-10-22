@@ -107,6 +107,18 @@ body { padding-bottom: 88px; }
   box-shadow: 0 6px 16px rgba(216, 255, 62, 0.22);
 }
 .shop-pill.live { background: var(--ice); color: #04201c; }
+.shop-pill.ok {
+  background: var(--lime); color: #0a0c08;
+  box-shadow: 0 0 0 2px #5eead4, 0 8px 18px rgba(94, 234, 212, 0.45);
+}
+.shop-pill.no {
+  background: rgba(255,255,255,0.08); color: #8b87a3;
+  box-shadow: none;
+  opacity: 0.72;
+}
+.shop-pill i { margin-left: 5px; font-style: normal; font-size: 10px; font-weight: 800; }
+.shop-pill.ok i { color: #04201c; }
+.shop-pill.no i { color: #ff8aa0; }
 .shop-result {
   display: inline-flex; align-items: center; min-height: 36px; padding: 8px 14px;
   border-radius: 999px; background: #ff2d55; color: #fff; font-weight: 800; font-size: 14px;
@@ -198,6 +210,7 @@ body { padding-bottom: 88px; }
 .shop-rev-card em { display: block; color: #d9d5ea; font-size: 11px; font-style: normal; }
 .shop-rev ul { margin: 10px 0 0; padding-left: 18px; color: #d9d5ea; font-size: 12px; line-height: 1.7; }
 .shop-sg { margin: 0 0 12px; padding: 12px; border-radius: 16px; background: rgba(255,255,255,0.04); border: 1px solid var(--line); }
+.shop-sg .shop-pills { margin: 8px 0 4px; }
 .shop-sg-hd { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
 .shop-sg-teams { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; font-weight: 700; }
 .shop-sg-score { color: #ff2d55; font-size: 22px; font-weight: 800; }
