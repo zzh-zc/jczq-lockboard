@@ -74,6 +74,28 @@
     return !!(n(had.h) && n(had.d) && n(had.a));
   }
 
+  function sameClub(a, b) {
+    if (global.CC_RESULT && CC_RESULT.sameTeam) return CC_RESULT.sameTeam(a, b);
+    return String(a || "") === String(b || "");
+  }
+
+  function bjdcOf(m) {
+    const list = ((global.CC_BJDC_CACHE || {}).matches) || [];
+    return list.find((x) => sameClub(x.home, m.home) && sameClub(x.away, m.away)) || null;
+  }
+
+  function fillMissingHad(list) {
+    (list || []).forEach((m) => {
+      if (!m || hasHad(m)) return;
+      const b = bjdcOf(m);
+      if (!b || !n((b.had || {}).h) || !n((b.had || {}).d) || !n((b.had || {}).a)) return;
+      m.had = Object.assign({}, b.had);
+      if (!m.hhad || (m.hhad.h == null && !m.hhad.goalLine)) m.hhad = b.hhad || m.hhad;
+      if (!m.kickoff && b.kickoff) m.kickoff = b.kickoff;
+    });
+    return list;
+  }
+
   function pickPool(cur, prev) {
     if (cur && Object.keys(cur).length > 3) return cur;
     return prev || cur || {};
@@ -97,8 +119,8 @@
         crs: pickPool(m.crs, prev.crs),
       }));
     });
-    return [...map.values()]
-      .filter((m) => hasHad(m))
+    return fillMissingHad([...map.values()])
+      .filter((m) => hasHad(m) || (m.home && m.away))
       .sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.code).localeCompare(String(b.code)));
   }
 
@@ -109,11 +131,10 @@
     (json.value.matchInfoList || []).forEach((day) => {
       (day.subMatchList || []).forEach((row) => {
         if (row.matchStatus && /Cancel|Paused/i.test(row.matchStatus)) return;
-        if (!row.had || !n(row.had.h) || !n(row.had.d) || !n(row.had.a)) return;
         matches.push(mapJc(row));
       });
     });
-    return { matches, updatedAt: json.value.lastUpdateTime || "" };
+    return { matches: fillMissingHad(matches), updatedAt: json.value.lastUpdateTime || "" };
   }
 
   async function pull() {

@@ -368,7 +368,19 @@
   }
 
   function lockOne(raw) {
-    const o = { h: n(raw.had.h), d: n(raw.had.d), a: n(raw.had.a) };
+    let had = (raw && raw.had) || {};
+    if (!n(had.h) || !n(had.d) || !n(had.a)) {
+      const list = ((global.CC_BJDC_CACHE || {}).matches) || [];
+      const same = (global.CC_RESULT && CC_RESULT.sameTeam) ? CC_RESULT.sameTeam : (a, b) => a === b;
+      const hit = list.find((x) => same(x.home, raw.home) && same(x.away, raw.away));
+      if (hit && hit.had) {
+        had = hit.had;
+        raw.had = had;
+        if (hit.hhad && !(raw.hhad && (raw.hhad.h || raw.hhad.goalLine))) raw.hhad = hit.hhad;
+      }
+    }
+    const o = { h: n(had.h), d: n(had.d), a: n(had.a) };
+    if (!o.h || !o.d || !o.a) return null;
     const line = n((raw.hhad || {}).goalLineValue || (raw.hhad || {}).goalLine) || 0;
     const eu = hottest(o);
     const env = envOf(raw.league);
@@ -763,9 +775,10 @@
         return prev;
       }
       const m = lockOne(raw);
+      if (!m) return prev || null;
       overlayNotes(m, old);
       return m;
-    });
+    }).filter(Boolean);
     const keyOf = issueKeyOf;
     const seen = new Set(locked.map(keyOf));
     const keep = old.filter((m) => {

@@ -425,24 +425,58 @@
     { code: "010", league: "欧冠", date: "2026-10-20", kickoff: "03:45", home: "波尔图", away: "PSV", sp: "1.34 / 4.80 / 5.75", pick: "主", dual: false, safe: false, env: "高可信", paperOppose: true, tag: "复盘挂", result: "客", score: "0-1", summary: "1.34 欧冠 0 分热主跟纸面。", factors: [] },
   ];
 
+  const OPEN_JC = [
+    {
+      code: "005", slot: "周四005", league: "欧罗巴", date: "2026-10-23", kickoff: "00:45",
+      home: "OFI克里特", away: "勒沃库森",
+      sp: "11.06 / 6.80 / 1.21", pick: "平/客", dual: true, safe: false, env: "中可信",
+      paperOppose: false, tag: "1.21禁止死胆",
+      had: { h: "11.06", d: "6.80", a: "1.21" },
+      hhad: { h: "1.90", d: "3.20", a: "1.91", goalLine: "+2", goalLineValue: "+2.00" },
+      ttgPicks: ["3球", "4球"], ftScores: ["0-2", "1-3"], hafuPicks: ["负负", "平负"],
+      summary: "竞彩胜平负未开，北单 11.06 / 6.80 / 1.21，让+2。药厂欧赔从 1.33 降到 1.21。克里特近 3 连败但能进。1.21 禁止死胆，锁平/客。中可信少串。",
+      factors: [
+        { name: "战意", text: "药厂欧罗巴 6 分刚客场 4-0 波兹南，这场要续。克里特主场给脸，近 3 连败更急着停败。" },
+        { name: "利益关系", text: "无。" },
+        { name: "赛事优先级", text: "药厂欧战是赛季大钱，客场不会收。克里特欧罗巴也是合同场，但内容差一档。" },
+        { name: "实力", text: "药厂联赛刚 2-1 弗赖堡、欧战客屠波兹南。克里特近 1-2 雷恩、0-3 AEK、3-4 卡拉马塔，能进也能漏。" },
+        { name: "主客", text: "克里特主场。药厂客场刚大胜，不是客场虫。" },
+        { name: "伤停轮换", text: "未知。不拿伤停改号。" },
+        { name: "赛程", text: "欧罗巴一轮。两边都不是友谊赛。" },
+        { name: "阵容特性", text: "药厂能翻能大胜。克里特能进，不像纯磨。深盘不默认零封。" },
+        { name: "重要程度", text: "欧罗巴两边都要 ≠ 克里特能磨满。1.21 仍禁止死胆。" },
+        { name: "发布会", text: "未知。" },
+        { name: "SP", text: "竞彩三项未开。北单客 1.21 / 平 6.80 / 主 11.06，让+2。跟客带平。" },
+      ],
+    },
+  ];
+
+  function mergeMissing(rows, flag) {
+    if (!global.CC_DATA || !CC_DATA.jczq) return;
+    const have = new Set((CC_DATA.jczq.matches || []).map((m) => m.slot || (m.home + m.away)));
+    const extra = (rows || []).filter((m) => {
+      if (!m.source) m.source = "board";
+      return !have.has(m.slot) && !have.has(m.home + m.away);
+    });
+    if (extra.length) CC_DATA.jczq.matches = extra.concat(CC_DATA.jczq.matches);
+    if (flag) global.CC_DATA[flag] = true;
+  }
+
   function attach() {
     if (!global.CC_DATA._pastMerged) {
-      const have = new Set((global.CC_DATA.jczq.matches || []).map((m) => m.slot || (m.home + m.away)));
       PAST_JC.forEach((m) => {
-        if (!m.source) m.source = "board";
         if (!m.slot && m.code) m.slot = "周二" + String(m.code).replace(/\D/g, "").padStart(3, "0");
       });
-      const extra = PAST_JC.filter((m) => !have.has(m.slot) && !have.has(m.home + m.away));
-      global.CC_DATA.jczq.matches = extra.concat(global.CC_DATA.jczq.matches);
-      global.CC_DATA._pastMerged = true;
+      mergeMissing(PAST_JC, "_pastMerged");
     }
+    mergeMissing(OPEN_JC, "");
     const slateDate = { jczq: "2026-10-21", beidan: "2026-10-21", r14: "2026-10-21", r9: "2026-10-21" };
     ["jczq", "beidan", "r14", "r9"].forEach((key) => {
       if (!global.CC_DATA[key] || !global.CC_DATA[key].matches) return;
       (global.CC_DATA[key].matches || []).forEach((m) => {
         if (key === "r14" && m.source !== "live") m.date = Number(m.code) <= 7 ? "2026-10-20" : "2026-10-22";
         const live = m.source === "live" || m._mk;
-        if (!live && !m.result) Object.assign(m, defaultExtras(m));
+        if (!live && !m.result && !(m.ttgPicks && m.ttgPicks.length)) Object.assign(m, defaultExtras(m));
         delete m.agents;
         delete m.tally;
         delete m.iw;
