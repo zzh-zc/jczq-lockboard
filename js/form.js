@@ -60,23 +60,99 @@
     return { home: home, away: away, gap: gap, unpriced: unpriced, prio: prio, text: text };
   }
 
-  function patch(m, pack) {
-    m.form = pack;
-    const hs = pack.homeSide || {};
-    const as = pack.awaySide || {};
+  function newsBlobAll(m) {
+    return newsBlob(m, "home") + " " + newsBlob(m, "away");
+  }
+
+  function interestOf(m) {
+    const blob = newsBlobAll(m) + " " + (m.home || "") + (m.away || "");
+    if (/德比|同城|直接对话|六分战|同组/.test(blob)) return "有直接对话/德比，只记一笔，无假赛证据写无。";
+    return "无。";
+  }
+
+  function busyOf(side, date) {
+    const games = ((side || {}).recent || {}).games || [];
+    const end = Date.parse(date || "") || Date.now();
+    return games.filter((g) => {
+      const t = Date.parse(g.date || "");
+      return t && end - t >= 0 && end - t <= 8 * 86400000;
+    }).length;
+  }
+
+  function scheduleOf(m, hs, as) {
+    const hb = busyOf(hs, m.date);
+    const ab = busyOf(as, m.date);
+    const text = "主队近8天" + hb + "场，客队近8天" + ab + "场。";
+    return { text: text, busy: hb >= 2 || ab >= 2, home: hb, away: ab };
+  }
+
+  function shapeOf(hs, as) {
+    const hr = (hs && hs.recent) || {};
+    const ar = (as && as.recent) || {};
+    if (!hr.n && !ar.n) return { text: "样本不足。", homeHard: false, awayHard: false };
+    const text = "主队近况进" + (hr.gf || 0) + "失" + (hr.ga || 0) + "；客队近况进" + (ar.gf || 0) + "失" + (ar.ga || 0) + "。";
+    return {
+      text: text,
+      homeHard: hr.n >= 5 && hr.w >= hr.n * 0.7,
+      awayHard: ar.n >= 5 && ar.w >= ar.n * 0.7,
+      homeSoft: hr.n >= 5 && hr.w <= hr.n * 0.3,
+      awaySoft: ar.n >= 5 && ar.w <= ar.n * 0.3,
+    };
+  }
+
+  function pressOf(m) {
+    const blob = newsBlobAll(m);
+    if (/点名不上|确认轮换|B\s*队|二队首发|青年军/.test(blob)) return { text: "有点名/轮换，盘口可能没吃完。", late: true };
+    if (/发布会|赛前|首发/.test(blob)) return { text: "有赛前表态，未见点名不上。", late: false };
+    return { text: "未知。只收点名轮换。", late: false };
+  }
+
+  function lateInj(hs, as) {
+    const inj = [].concat((hs && hs.injuries) || [], (as && as.injuries) || []);
+    return inj.some((p) => /Doubtful|出战成疑|临场|doubt/i.test(String((p && p.reason) || "")));
+  }
+
+  function fillFactors(m, pack) {
+    const hs = (pack && pack.homeSide) || (m.form && m.form.homeSide) || {};
+    const as = (pack && pack.awaySide) || (m.form && m.form.awaySide) || {};
     m.factors = m.factors || [];
     const set = (name, text) => {
       const hit = m.factors.find((f) => f.name === name);
       if (hit) hit.text = text;
       else m.factors.push({ name: name, text: text });
     };
-    set("伤停轮换", injText(hs.injuries, "主队") + "。" + injText(as.injuries, "客队") + "。名单伤停通常已定价，出战成疑才单看。");
-    set("主客", "主队主场近" + wd(hs.venue) + "。客队客场近" + wd(as.road) + "。友谊赛已剔除。");
-    set("实力", "主队近" + wd(hs.recent) + "。客队近" + wd(as.recent) + "。友谊赛已剔除。");
     m.will = willOf(m);
+    const sch = scheduleOf(m, hs, as);
+    const shape = shapeOf(hs, as);
+    const press = pressOf(m);
     set("战意", m.will.text);
+    set("利益关系", interestOf(m));
     set("赛事优先级", m.will.prio);
-    set("重要程度", m.will.gap === "都重" ? "两边都要，不单边编故事。" : (m.will.gap === "都轻" ? "两边都可能降档，先路过。" : "一边看得更重，只改出手不改方向。"));
+    set("实力", pack ? ("主队近" + wd(hs.recent) + "。客队近" + wd(as.recent) + "。友谊赛已剔除。") : "未知。");
+    set("主客", pack ? ("主队主场近" + wd(hs.venue) + "。客队客场近" + wd(as.road) + "。友谊赛已剔除。") : "未知。");
+    set("伤停轮换", pack ? (injText(hs.injuries, "主队") + "。" + injText(as.injuries, "客队") + "。名单伤停通常已定价，出战成疑才单看。") : "未知。");
+    set("赛程", sch.text);
+    set("阵容特性", shape.text);
+    set("重要程度", m.will.gap === "都重" ? "两边都要，禁止单边编故事。" : (m.will.gap === "都轻" ? "两边都可能降档，先路过。" : "一边看得更重，只改出手不改方向。"));
+    set("发布会", press.text);
+    set("SP", m.sp ? (m.sp + "。服务于读盘，不是最后找补。") : "未知。");
+    m.draft = {
+      clashWill: (m.will.gap === "主更重" || m.will.gap === "客更轻") ? "home" : ((m.will.gap === "客更重" || m.will.gap === "主更轻") ? "away" : ""),
+      bothHeavy: m.will.gap === "都重",
+      bothLight: m.will.gap === "都轻",
+      unpriced: !!(m.will.unpriced || press.late),
+      lateInj: lateInj(hs, as),
+      busy: sch.busy,
+      homeHard: shape.homeHard,
+      awayHard: shape.awayHard,
+      homeSoft: shape.homeSoft,
+      awaySoft: shape.awaySoft,
+    };
+  }
+
+  function patch(m, pack) {
+    m.form = pack;
+    fillFactors(m, pack);
   }
 
   function attachAll() {
@@ -88,14 +164,10 @@
           patch(m, pack);
           return;
         }
-        m.will = willOf(m);
-        m.factors = m.factors || [];
-        const hit = m.factors.find((f) => f.name === "战意");
-        if (hit) hit.text = m.will.text;
-        else m.factors.push({ name: "战意", text: m.will.text });
+        fillFactors(m, null);
       });
     });
   }
 
-  global.CC_FORM = { attachAll, lookup, wd, injText, willOf };
+  global.CC_FORM = { attachAll, lookup, wd, injText, willOf, fillFactors };
 })(window);

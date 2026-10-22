@@ -346,7 +346,7 @@
     } else {
       const side = eu === "away" ? o.a : o.h;
       const can = !red && (aligned || ahSide === "even");
-      out = side < 1.8
+      out = side < 1.85
         ? { pick: eu === "away" ? "平/客" : "主/平", dual: true, paperOppose: false, tag: "低赔不单", light: "yellow", lock: can }
         : { pick: eu === "away" ? "客" : "主", dual: false, paperOppose: false, tag: "跟一边", light: "green", lock: can };
     }
@@ -403,7 +403,7 @@
   }
 
   function capDual(list) {
-    const keep = { 别碰热门: 0, 别碰: 0, 对开: 1, 低赔不单: 2, 偏平: 3, 胶着: 4 };
+    const keep = { 别碰热门: 0, 别碰: 0, 对开: 1, 稳妥带平: 2, 低赔不单: 2, 偏平: 3, 胶着: 4, 内容拧着: 0, 两边降档: 0 };
     const groups = {};
     list.forEach((m) => {
       groups[m.date] = groups[m.date] || [];
@@ -452,7 +452,8 @@
       extra || `列表 ${list.length} 场，出手 ${play.length}，观察 ${skip.length}。出手里双选 ${dual}/${play.length || 1}`,
       green.length ? "跟一边：" + green.join("、") : "这一轮没有清楚的单边",
       mix.length ? "掺局区只少买：" + mix.join("、") : "掺局区没有同向场",
-      skip.length ? "红灯/对开/欧亚没同向：只观察，不进怎么买" : "没有观察场",
+      skip.length ? "红灯/对开/内容拧着：只观察，不进怎么买" : "没有观察场",
+      "十一点是出手闸门：拧着路过，都重或未定价就强制不败。不保证八成。",
       "灯是状态，动作才是出不出手。倾向和动作必须一致。",
     ];
   }
@@ -592,7 +593,7 @@
     global.CC_DATA.jczq.version = (pack.booksOk ? "竞彩+500百家 " : "竞彩官方 SP ") + (pack.updatedAt || "");
     global.CC_DATA.jczq.date = locked[0] ? locked[0].date : global.CC_DATA.jczq.date;
     global.CC_DATA.jczq.buy = buyLines(all);
-    global.CC_DATA.jczq.env = all.some((m) => m.env === "掺局区") ? "含掺局区，少买" : "高可信为主";
+    global.CC_DATA.jczq.env = all.some((m) => m.env === "掺局区") ? "含掺局区，少买。十一点卡出手。" : "高可信为主。十一点卡出手，不败追稳。";
     const mix = all.filter((m) => m.env === "掺局区").length;
     global.CC_DATA.jczq.dualLimit = mix > all.length * 0.5 ? 1 : 0.5;
     global.CC_DATA._liveAt = pack.updatedAt;
@@ -635,14 +636,83 @@
     return { r9, r14 };
   }
 
+  function euFromPick(m) {
+    const p = String(m.pick || "");
+    if (/主\/客|让胜\/让负/.test(p)) return "even";
+    if (/平\/客|让平\/让负|^客$|^让负$|^负$/.test(p)) return "away";
+    return "home";
+  }
+
+  function favOdds(m, eu) {
+    const nums = String(m.sp || "").match(/(\d+\.\d+)/g);
+    if (!nums || nums.length < 3) return null;
+    if (eu === "away") return +nums[2];
+    if (eu === "home") return +nums[0];
+    return Math.min(+nums[0], +nums[2]);
+  }
+
+  function contentClash(m, eu) {
+    const d = m.draft || {};
+    if (eu === "away" && d.clashWill === "home") return "战意偏主，客热不跟单";
+    if (eu === "home" && d.clashWill === "away") return "战意偏客，主热不跟单";
+    if (eu === "away" && d.homeHard && d.awaySoft) return "主场近况硬、客场软，客热不跟单";
+    if (eu === "home" && d.awayHard && d.homeSoft) return "客场近况硬、主场软，主热不跟单";
+    return "";
+  }
+
+  function coverPick(m, eu) {
+    const raw = undefeated(eu);
+    return /让/.test(String(m.pick || "")) ? asHandicap(raw.pick) : raw.pick;
+  }
+
+  function applySteady(m) {
+    if (!m || m.source !== "live") return;
+    if (m.light === "red") return;
+    if (global.CC_FORM && CC_FORM.fillFactors && !m.draft) CC_FORM.fillFactors(m, m.form);
+    const d = m.draft || {};
+    const eu = euFromPick(m);
+    const clash = contentClash(m, eu);
+    m.steady = clash || "";
+    if (d.bothLight) {
+      m.lock = false;
+      m.tag = "两边降档";
+      return;
+    }
+    if (clash) {
+      m.lock = false;
+      m.paperOppose = true;
+      m.tag = "内容拧着";
+      m.steady = clash;
+      return;
+    }
+    const fav = favOdds(m, eu);
+    const thin = fav != null && fav >= 1.8 && fav < 1.95;
+    const needCover = d.bothHeavy || d.unpriced || d.lateInj || d.busy || thin;
+    if (needCover && !m.dual) {
+      m.pick = coverPick(m, eu);
+      m.dual = true;
+      m.light = "yellow";
+      m.lock = true;
+      m.tag = "稳妥带平";
+      if (m._mk) fillMarkets(m, m._mk, m._mk.had, m._mk.line);
+    }
+  }
+
+  function applySteadyAll() {
+    ["jczq", "beidan"].forEach((key) => {
+      ((((global.CC_DATA || {})[key] || {}).matches) || []).forEach(applySteady);
+    });
+  }
+
   function actionOf(m) {
     const g = m.engine && m.engine.gate;
     const will = m.will || (global.CC_FORM && CC_FORM.willOf && CC_FORM.willOf(m));
     if (will && !m.will) m.will = will;
     if (m.light === "red" || g === "别碰") return "别碰";
-    if (m.lock === false) return "路过";
+    if (m.lock === false || m.tag === "内容拧着" || m.tag === "两边降档") return "路过";
     if (will && will.gap === "都轻") return "路过";
     if (m.env === "掺局区" || m.tag === "名额满才单") return "少买";
+    if (m.tag === "稳妥带平" || m.tag === "低赔不单" || m.tag === "胶着" || m.tag === "偏平") return "买两边";
     if (will && (will.gap === "主更重" || will.gap === "客更重" || will.gap === "主更轻" || will.gap === "客更轻") && m.light === "green") return "少买";
     if (g === "不出手" || g === "路过") return "路过";
     if (m.dual) return "买两边";
@@ -689,8 +759,7 @@
         so: e.reasons.join(""),
       });
     }
-    writeWhyForm(m, why);
-    writeWhyWill(m, why);
+    writeWhyDraft(m, why);
     const act = actionOf(m);
     const pick = String(m.pick || "").replace(/主/g, "胜").replace(/客/g, "负");
     why.push({ from: "结论", fact: "倾向 " + pick + "，动作 " + act, so: actHint(act) });
@@ -699,41 +768,25 @@
     m.summary = why.map((x) => x.from + "：" + x.fact + " → " + x.so).join("。") + "。";
   }
 
-  function writeWhyWill(m, why) {
-    const will = m.will || (global.CC_FORM && CC_FORM.willOf && CC_FORM.willOf(m));
-    if (will && !m.will) m.will = will;
-    if (!will) {
-      why.push({ from: "战意", fact: "未知", so: "不拿空战意改号" });
-      return;
+  function writeWhyDraft(m, why) {
+    const order = ["战意", "利益关系", "赛事优先级", "实力", "主客", "伤停轮换", "赛程", "阵容特性", "重要程度", "发布会", "SP"];
+    const bag = {};
+    (m.factors || []).forEach((f) => { if (f && f.name) bag[f.name] = f.text; });
+    order.forEach((name) => {
+      why.push({ from: name, fact: bag[name] || "未知", so: "底稿用来卡出手，不拿它改方向" });
+    });
+    if (m.tag === "内容拧着" || m.tag === "两边降档" || m.tag === "稳妥带平" || m.steady) {
+      why.push({
+        from: "稳妥闸门",
+        fact: m.steady || m.tag,
+        so: m.lock === false ? "内容拧着就路过，不去博冷" : "强制不败，宁缺毋滥",
+      });
     }
-    why.push({
-      from: "战意",
-      fact: will.text,
-      so: will.unpriced ? "有未定价轮换，只改出手不改方向" : (will.gap === "都轻" ? "两边都可能降档，路过" : "公开战意已定价，不推翻盘口"),
-    });
-  }
-
-  function writeWhyForm(m, why) {
-    const hs = m.form && m.form.homeSide;
-    const as = m.form && m.form.awaySide;
-    if (!hs && !as) return;
-    why.push({
-      from: "主客近8场（友谊赛已剔除）",
-      fact: "主队主场 " + formLine(hs, "venue") + "；客队客场 " + formLine(as, "road"),
-      so: "内容底稿，不改灯",
-    });
-    const inj = [].concat((hs && hs.injuries) || [], (as && as.injuries) || []);
-    const late = inj.some((p) => /Doubtful|出战成疑|临场/.test(String(p.reason || "")));
-    why.push({
-      from: "伤停",
-      fact: inj.length ? ("主" + ((hs && hs.injuries) || []).length + "人 / 客" + ((as && as.injuries) || []).length + "人") : "两边无公开伤停",
-      so: late ? "有出战成疑，盘口可能没吃完，仍不自动改号" : "公开伤停视为已定价，不改号",
-    });
   }
 
   function actHint(act) {
-    if (act === "买一边") return "灯绿且闸门允许，才跟一边";
-    if (act === "买两边") return "胶着就包不败，或者路过";
+    if (act === "买一边") return "灯绿且十一点没拧着，才跟一边";
+    if (act === "买两边") return "不败方向，稳妥带平";
     if (act === "少买") return "掺局区少买，不进长串";
     if (act === "别碰") return "别碰热门单边";
     return "倾向写下，这笔先不出";
@@ -758,6 +811,7 @@
     if (global.CC_NEWS) CC_NEWS.attachAll();
     if (global.CC_FORM) CC_FORM.attachAll();
     if (global.CC_ENGINE) CC_ENGINE.attachAll();
+    applySteadyAll();
     ["jczq", "beidan", "r14", "r9"].forEach((key) => {
       realign(((global.CC_DATA || {})[key] || {}).matches);
     });
