@@ -35,7 +35,7 @@
   }
 
   function all() {
-    const list = (((global.CC_DATA || {}).jczq || {}).matches || []).filter((m) => m && m.source !== "hist" && m.source !== "sfc-history");
+    const list = (((global.CC_DATA || {}).jczq || {}).matches || []).filter((m) => m && m.source !== "sfc-history");
     const stamped = list.map((m) => (global.CC_ODDS && CC_ODDS.stampIssue ? CC_ODDS.stampIssue(m) : m));
     if (global.CC_BOARD && CC_BOARD.pruneList) return CC_BOARD.pruneList(stamped);
     return stamped;
@@ -48,9 +48,21 @@
   }
 
   function dates() {
-    const have = [...new Set(all().map(issueKey).filter(Boolean))].sort();
-    if (have.length) return have;
-    return [today()];
+    const t = today();
+    const add = (global.CC_ODDS && CC_ODDS.addDays) ? CC_ODDS.addDays : (iso, n) => {
+      const d = new Date(iso + "T12:00:00");
+      d.setDate(d.getDate() + n);
+      const p = (x) => String(x).padStart(2, "0");
+      return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+    };
+    const n = (global.CC_BOARD && CC_BOARD.DAYS) || 10;
+    const days = [];
+    for (let i = n - 1; i >= 0; i -= 1) days.push(add(t, -i));
+    all().forEach((m) => {
+      const k = issueKey(m);
+      if (k && days.indexOf(k) < 0) days.push(k);
+    });
+    return days.sort();
   }
 
   function wd(iso) {

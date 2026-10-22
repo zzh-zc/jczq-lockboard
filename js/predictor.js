@@ -1054,7 +1054,7 @@
   }
 
   function backfillMarkets(m) {
-    if (!m || m.source === "hist" || m.source === "sfc-history") return;
+    if (!m || m.source === "sfc-history") return;
     if ((m.ttgPicks || []).length >= 2 && (m.ftScores || []).length >= 2 && (m.hafuPicks || []).length) return;
     const o = spOf(m);
     if (!o) return;
@@ -1063,15 +1063,113 @@
     if (global.CC_ODDS && CC_ODDS.stampIssue) CC_ODDS.stampIssue(m);
   }
 
+  function priorOdds(league) {
+    const list = ((global.CC_REVIEW_CACHE || {}).leagues) || [];
+    const g = String(league || "");
+    const hit = list.find((x) => x.league === g) || list.find((x) => x.league && g.indexOf(x.league) >= 0);
+    if (!hit || hit.home == null) return { h: 2.40, d: 3.30, a: 2.50 };
+    const h = Math.max(0.08, (hit.home || 0) / 100);
+    const d = Math.max(0.08, (hit.draw || 0) / 100);
+    const a = Math.max(0.08, (hit.away || 0) / 100);
+    const s = h + d + a;
+    return {
+      h: +(0.92 / (h / s)).toFixed(2),
+      d: +(0.92 / (d / s)).toFixed(2),
+      a: +(0.92 / (a / s)).toFixed(2),
+    };
+  }
+
+  function alreadyHave(list, row) {
+    return (list || []).some((x) => {
+      if (!x) return false;
+      if (sameTeam(x.home, row.home) && sameTeam(x.away, row.away) && nearIssue(x, row)) return true;
+      if (x.score && row.score && x.score === row.score && (sameTeam(x.home, row.home) || sameTeam(x.away, row.away)) && nearIssue(x, row)) return true;
+      return false;
+    });
+  }
+
+  function histLock(row) {
+    const o = spOf(row) || priorOdds(row.league);
+    const env = envOf(row.league);
+    const euro = /欧冠|欧罗巴|欧协/.test(String(row.league || ""));
+    const raw = {
+      league: row.league,
+      home: row.home,
+      away: row.away,
+      date: row.date,
+      kickoff: row.kickoff || (euro ? "03:00" : ""),
+      code: row.code || "",
+      slot: row.slot || "",
+      score: row.score,
+      result: row.result,
+      htScore: row.htScore,
+      matchId: row.matchId,
+    };
+    if (euro && raw.date && global.CC_ODDS && CC_ODDS.addDays && !/周/.test(raw.slot)) {
+      raw.issueDate = CC_ODDS.addDays(raw.date, -1);
+      raw.issueWd = CC_ODDS.weekdayOf ? CC_ODDS.weekdayOf(raw.issueDate) : "";
+    }
+    const locked = decide(hottest(o), env, o, row.league);
+    stamp(locked, raw, fmtSp(o), env);
+    locked.source = "hist";
+    locked.score = row.score || locked.score || "";
+    locked.result = row.result || locked.result || "";
+    locked.htScore = row.htScore || locked.htScore;
+    locked.matchId = row.matchId || locked.matchId;
+    if (raw.issueDate) locked.issueDate = raw.issueDate;
+    if (raw.issueWd) locked.issueWd = raw.issueWd;
+    if (global.CC_ODDS && CC_ODDS.stampIssue) CC_ODDS.stampIssue(locked);
+    fillMarkets(locked, {}, o, 0, true);
+    locked.action = actionOf(locked);
+    locked.factors = blankFactors(locked.sp, locked.handicap);
+    locked.summary = (locked.summary || "") + " 回放锁：近10天补齐，不拿这场赛果改号。";
+    return locked;
+  }
+
+  function numberHistSlots(list) {
+    const groups = {};
+    (list || []).forEach((m) => {
+      const d = m.issueDate || m.date || "";
+      groups[d] = groups[d] || [];
+      groups[d].push(m);
+    });
+    Object.keys(groups).forEach((d) => {
+      const wd = (global.CC_ODDS && CC_ODDS.weekdayOf) ? CC_ODDS.weekdayOf(d) : "";
+      groups[d].forEach((m, i) => {
+        if (/周[一二三四五六日]\d{3}/.test(m.slot || "")) return;
+        const code = String(i + 1).padStart(3, "0");
+        m.code = m.code || code;
+        m.slot = (wd || "") + code;
+      });
+    });
+  }
+
   function hydrateHistory() {
     if (!global.CC_DATA || !CC_DATA.jczq) return [];
-    CC_DATA.jczq.matches = (CC_DATA.jczq.matches || []).filter((m) => m && m.source !== "hist" && m.source !== "sfc-history");
-    if (global.CC_BOARD && CC_BOARD.collapseTwins) CC_DATA.jczq.matches = CC_BOARD.collapseTwins(CC_DATA.jczq.matches);
-    (CC_DATA.jczq.matches || []).forEach((m) => {
-      if (global.CC_ODDS && CC_ODDS.stampIssue) CC_ODDS.stampIssue(m);
-      backfillMarkets(m);
+    const cut = (global.CC_BOARD && CC_BOARD.cutIso && CC_BOARD.cutIso()) || "";
+    const today = todayIso();
+    const cur = (CC_DATA.jczq.matches || []).filter((m) => m && m.source !== "hist" && m.source !== "sfc-history");
+    const extra = [];
+    const rows = [].concat(
+      ((global.CC_RESULT_CACHE || {}).matches) || [],
+      ((global.CC_REVIEW_CACHE || {}).matches) || []
+    );
+    rows.forEach((row) => {
+      if (!row || !row.date || (cut && row.date < cut) || row.date > today) return;
+      if (alreadyHave(cur, row) || alreadyHave(extra, row)) return;
+      const locked = histLock(row);
+      const iss = locked.issueDate || locked.date;
+      if (cut && iss && iss < cut) return;
+      extra.push(locked);
     });
-    return CC_DATA.jczq.matches;
+    numberHistSlots(extra);
+    cur.forEach(backfillMarkets);
+    let all = cur.concat(extra);
+    if (global.CC_BOARD && CC_BOARD.collapseTwins) all = CC_BOARD.collapseTwins(all);
+    if (global.CC_BOARD && CC_BOARD.pruneList) all = CC_BOARD.pruneList(all);
+    CC_DATA.jczq.matches = all;
+    if (global.CC_RESULT && CC_RESULT.attachList) CC_RESULT.attachList(all);
+    return all;
   }
 
   function finish() {
