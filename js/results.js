@@ -69,6 +69,22 @@
     return all().find((r) => r.date === m.date && sameTeam(r.home, m.home) && sameTeam(r.away, m.away)) || null;
   }
 
+  function parseScore(s) {
+    const hit = String(s || "").replace(/：/g, ":").replace(/-/g, ":").match(/(\d+)\s*:\s*(\d+)/);
+    if (!hit) return null;
+    return { h: +hit[1], a: +hit[2], tot: +hit[1] + +hit[2], lab: hit[1] + "-" + hit[2] };
+  }
+
+  function resultOf(m) {
+    const r = m && m.result;
+    if (r === "主" || r === "胜" || r === "客" || r === "负" || r === "平") return r;
+    const sc = parseScore(m && m.score);
+    if (!sc) return "";
+    if (sc.h > sc.a) return "主";
+    if (sc.h < sc.a) return "客";
+    return "平";
+  }
+
   function hitOf(pick, result) {
     const p = String(pick || "");
     if (result === "主" || result === "胜") return /主|让胜|(^|\/)胜(\/|$)/.test(p);
@@ -77,21 +93,52 @@
     return false;
   }
 
+  function hadHit(m) {
+    const pick = (m && m.pick) || ((m && m.hadPicks) || []).join("/");
+    return hitOf(pick, resultOf(m));
+  }
+
+  function ttgHit(m) {
+    const sc = parseScore(m && m.score);
+    if (!sc) return false;
+    return ((m.ttgPicks || m.ftOu || []).map(String)).some((p) => {
+      if (/7\+|7球/.test(p) && sc.tot >= 7) return true;
+      const n = Number(String(p).replace(/[^\d]/g, ""));
+      return n === sc.tot;
+    });
+  }
+
+  function crsHit(m) {
+    const sc = parseScore(m && m.score);
+    if (!sc) return false;
+    return (m.ftScores || []).some((x) => {
+      const p = parseScore(String(x).replace(/-/g, ":"));
+      return p && p.h === sc.h && p.a === sc.a;
+    });
+  }
+
+  function hitAny(m) {
+    if (!m || (!m.result && !m.score)) return null;
+    const hasPick = m.pick || (m.hadPicks && m.hadPicks.length) || (m.ftScores && m.ftScores.length) || (m.ttgPicks && m.ttgPicks.length);
+    if (!hasPick) return null;
+    return !!(hadHit(m) || ttgHit(m) || crsHit(m));
+  }
+
   function reviewOf(m) {
-    if (!m.pick || !m.result) return;
-    m.hit = hitOf(m.pick, m.result);
+    if (!m.score && !m.result) return;
+    const any = hitAny(m);
+    if (any != null) m.hit = any;
     if (m.review) {
       m.tag = m.hit ? "复盘中" : "复盘挂";
       return;
     }
-    const scores = (m.ftScores || []).join("/");
-    const scoreHit = !!(m.score && scores && scores.split("/").indexOf(m.score) >= 0);
-    m.review = m.hit ? "不败中" : "不败挂";
+    const bits = [];
+    if (hadHit(m)) bits.push("胜平负中");
+    if (ttgHit(m)) bits.push("进球中");
+    if (crsHit(m)) bits.push("比分中");
+    m.review = bits.length ? bits.join("、") : "全挂";
     m.tag = m.hit ? "复盘中" : "复盘挂";
-    const bits = [m.review, "赛果 " + (m.score || "") + " " + m.result];
-    if (scores) bits.push("比分当时 " + scores + (scoreHit ? " 中了" : " 没中"));
-    bits.push("灯不改");
-    m.summary = bits.join("。") + "。";
+    m.summary = [m.review, "赛果 " + (m.score || "") + " " + (m.result || "")].join("。") + "。";
   }
 
   function attachList(list) {
@@ -105,5 +152,5 @@
     });
   }
 
-  global.CC_RESULT = { all, search, lookup, attachList, hitOf };
+  global.CC_RESULT = { all, search, lookup, attachList, hitOf, hitAny, hadHit, ttgHit, crsHit, parseScore, resultOf };
 })(window);

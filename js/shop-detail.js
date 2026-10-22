@@ -177,7 +177,7 @@
         <div class="shop-bands">${poi.bands.map((x) => `<span>${x[0]} ${x[1]}%</span>`).join("")}</div>
       </div>
       <div class="shop-block"><h3>进球效率预测</h3>
-        <p>比分倾向 ${esc(ui.crsText(m))}，总进球 ${esc(ui.ttgText(m))}。期望总进球 ${(Number(poi.lh) + Number(poi.la)).toFixed(1)}。</p>
+        <p>比分倾向 ${esc(ui.crsText(m))}，总进球 ${esc(ui.ttgText(m))}，半全场 ${esc(ui.hafuText ? ui.hafuText(m) : ((m.hafuPicks || []).join("/") || "—"))}。期望总进球 ${(Number(poi.lh) + Number(poi.la)).toFixed(1)}。</p>
       </div>
       <div class="shop-block"><h3>综合分析</h3>
         <p>${esc(lamp(m))}　方向 ${esc((m.market && m.market.drift) || (e && ("钱站" + e.moneySide)) || "未知")}　分歧 ${esc((m.market && m.market.veto) || (e && e.fight ? "欧亚拧着" : "抱团"))}　走势 ${esc((m.market && m.market.quake) || "暂时没变")}</p>

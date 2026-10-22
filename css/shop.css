@@ -100,9 +100,9 @@ body { padding-bottom: 88px; }
 .shop-vs b { color: var(--magenta); font-style: italic; letter-spacing: 2px; font-size: 18px; }
 .shop-pills { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 .shop-pill {
-  border: 0; border-radius: 999px; padding: 8px 16px; min-height: 36px;
+  border: 0; border-radius: 999px; padding: 8px 12px; min-height: 36px;
   background: var(--lime);
-  color: #0a0c08; font-weight: 700; font-size: 13px;
+  color: #0a0c08; font-weight: 700; font-size: 12px;
   box-shadow: 0 6px 16px rgba(216, 255, 62, 0.22);
 }
 .shop-pill.live { background: var(--ice); color: #04201c; }
@@ -218,7 +218,7 @@ body { padding-bottom: 88px; }
   display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
   color: var(--muted); font-size: 11px; margin-bottom: 10px;
 }
-.shop-sg-foot { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
+.shop-sg-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; color: var(--muted); font-size: 12px; }
 .shop-sg-foot .hit { color: #3ce0d0; }
 .shop-sg-foot .miss { color: #ff5d8f; }
 .shop-cats { display: flex; gap: 8px; overflow-x: auto; }

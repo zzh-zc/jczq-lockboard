@@ -52,13 +52,14 @@
   }
 
   function hitOf(m) {
+    if (global.CC_RESULT && CC_RESULT.hitAny) return CC_RESULT.hitAny(m);
     if (!m.result || !global.CC_RESULT) return null;
     return CC_RESULT.hitOf(m.pick, m.result);
   }
 
   function dayChip(iso) {
     const list = all().filter((m) => m.date === iso);
-    const done = list.filter((m) => m.result);
+    const done = list.filter((m) => m.result || m.score);
     const hit = done.filter((m) => hitOf(m) === true).length;
     const lab = iso === today() ? "今日" : wd(iso);
     if (!list.length) return { top: "--场", bot: lab + " " + md(iso) };
@@ -94,6 +95,12 @@
     const raw = (m.ftScores || []).slice(0, 3);
     if (!raw.length) return "1:0/0:1";
     return raw.map((x) => String(x).replace(/-/g, ":")).join("/");
+  }
+
+  function hafuText(m) {
+    const raw = (m.hafuPicks || m.htScores || []).slice(0, 2);
+    if (!raw.length) return "胜胜/平胜";
+    return raw.join("/");
   }
 
   function slotOf(m) {
@@ -162,6 +169,7 @@
           <button type="button" class="shop-pill" data-add="${esc(m.id)}" data-kind="had">${esc(hadText(m))}</button>
           <button type="button" class="shop-pill" data-add="${esc(m.id)}" data-kind="ttg">${esc(ttgText(m))}</button>
           <button type="button" class="shop-pill" data-add="${esc(m.id)}" data-kind="crs">${esc(crsText(m))}</button>
+          <button type="button" class="shop-pill" data-add="${esc(m.id)}" data-kind="hafu">${esc(hafuText(m))}</button>
           ${liveMark(m)}
         </div>
       </article>
@@ -179,11 +187,16 @@
     const rows = global.CC_RESULT ? CC_RESULT.search("", state.date === TODAY ? "" : state.date) : [];
     const show = (state.date === TODAY ? rows.slice(0, 40) : rows.filter((r) => r.date === state.date));
     const ours = dayList().filter((m) => m.score || m.result);
-    const list = show.length ? show : ours;
+    const list = ours.length ? ours : show;
     $("shopMain").innerHTML = list.map((m) => {
-      const pick = m.pick || "";
-      const ok = m.result && global.CC_RESULT ? CC_RESULT.hitOf(pick, m.result) : (m.hit === true ? true : m.hit === false ? false : null);
+      const ok = hitOf(m);
       const res = m.result === "主" || m.result === "胜" ? "主胜" : m.result === "客" || m.result === "负" ? "客胜" : m.result === "平" ? "平局" : "";
+      const lockBits = [];
+      if (m.pick || (m.hadPicks && m.hadPicks.length)) lockBits.push(hadText(m));
+      if ((m.ttgPicks || m.ftOu || []).length) lockBits.push(ttgText(m));
+      if ((m.ftScores || []).length) lockBits.push(crsText(m));
+      if ((m.hafuPicks || m.htScores || []).length) lockBits.push(hafuText(m));
+      const lockLine = lockBits.join("  ");
       return `
         <article class="shop-sg">
           <div class="shop-sg-hd"><span>${esc(m.league || "")} · ${esc(m.slot || m.code || "")}</span><span>${esc(m.date || "")} ${esc(m.kickoff || "")}</span></div>
@@ -194,7 +207,7 @@
           </div>
           <div class="shop-sg-foot">
             <span>${esc(res)}</span>
-            <span>${pick ? "锁 " + esc(String(pick).replace(/主/g, "胜").replace(/客/g, "负")) : "未锁"}</span>
+            <span>${lockLine ? "锁 " + esc(lockLine) : "未锁"}</span>
             <b class="${ok === true ? "hit" : ok === false ? "miss" : ""}">${ok === true ? "中" : ok === false ? "挂" : "—"}</b>
           </div>
         </article>
@@ -265,7 +278,7 @@
     const ret = combo * stake;
     $("shopMain").innerHTML = `
       <div class="shop-slip">
-        <p class="shop-note" style="padding:0 0 8px">点下面三个号进过关。赔率用竞彩即时 SP 近似。</p>
+        <p class="shop-note" style="padding:0 0 8px">点下面的号进过关。赔率用竞彩即时 SP 近似。</p>
         ${state.slip.length ? state.slip.map((x, i) => `<p>${esc(x.label)}　${x.odd}<button type="button" data-del="${i}">删</button></p>`).join("") : "<p>还没有选号</p>"}
         <p>本金 <input id="shopStake" type="number" min="1" step="1" value="${stake}" /> 元</p>
         <p><b>${state.slip.length} 串 1　过关 ${combo.toFixed(2)}　回报约 ${ret.toFixed(2)}</b></p>
@@ -275,7 +288,7 @@
   }
 
   function ui() {
-    return { fair, pct, hadText, ttgText, crsText };
+    return { fair, pct, hadText, ttgText, crsText, hafuText };
   }
 
   function renderInfo() {
@@ -312,7 +325,7 @@
   function addSlip(id, kind) {
     const m = all().find((x) => (x.id || slotOf(x)) === id);
     if (!m) return;
-    const label = slotOf(m) + " " + (kind === "had" ? hadText(m) : kind === "ttg" ? ttgText(m) : crsText(m));
+    const label = slotOf(m) + " " + (kind === "had" ? hadText(m) : kind === "ttg" ? ttgText(m) : kind === "hafu" ? hafuText(m) : crsText(m));
     const odd = oddOf(m, kind);
     state.slip.push({ label: label, odd: odd });
     state.tab = "calc";
