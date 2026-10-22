@@ -155,9 +155,10 @@
   }
 
   function attachAll() {
-    ["jczq", "beidan", "r14", "r9"].forEach((key) => {
+    ["jczq", "r14", "r9"].forEach((key) => {
       const list = global.CC_DATA && CC_DATA[key] && CC_DATA[key].matches;
       (list || []).forEach((m) => {
+        if (m.source !== "live") return;
         const pack = lookup(m);
         if (pack) {
           patch(m, pack);

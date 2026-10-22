@@ -427,6 +427,7 @@
 
   function attach() {
     if (!global.CC_DATA._pastMerged) {
+      PAST_JC.forEach((m) => { if (!m.source) m.source = "board"; });
       global.CC_DATA.jczq.matches = PAST_JC.concat(global.CC_DATA.jczq.matches);
       global.CC_DATA._pastMerged = true;
     }

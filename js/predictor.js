@@ -579,23 +579,23 @@
     locked.forEach((m) => overlayNotes(m, old));
     const keyOf = (m) => m.slot || [m.date, m.home, m.away].join("|");
     const seen = new Set(locked.map(keyOf));
-    const today = todayIso();
     const keep = old.filter((m) => {
-      if (seen.has(keyOf(m))) return false;
-      if (m.result) return true;
-      return m.source === "live" && (!m.date || m.date >= today);
+      if (!m || seen.has(keyOf(m))) return false;
+      if (locked.some((n) => sameTeam(n.home, m.home) && sameTeam(n.away, m.away) && (!m.date || !n.date || m.date === n.date))) return false;
+      if (!m.source) m.source = "board";
+      return true;
     });
+    capDual(locked);
+    realign(locked);
     const all = keep.concat(locked);
-    capDual(all);
-    realign(all);
     global.CC_DATA.jczq.matches = all;
-    global.CC_DATA.jczq.title = "竞彩足球 · 即时算法 " + all.length + " 场";
+    global.CC_DATA.jczq.title = "竞彩足球 · 在售 " + locked.length + " / 历史 " + keep.length;
     global.CC_DATA.jczq.version = (pack.booksOk ? "竞彩+500百家 " : "竞彩官方 SP ") + (pack.updatedAt || "");
     global.CC_DATA.jczq.date = locked[0] ? locked[0].date : global.CC_DATA.jczq.date;
-    global.CC_DATA.jczq.buy = buyLines(all);
-    global.CC_DATA.jczq.env = all.some((m) => m.env === "掺局区") ? "含掺局区，少买。十一点卡出手。" : "高可信为主。十一点卡出手，不败追稳。";
-    const mix = all.filter((m) => m.env === "掺局区").length;
-    global.CC_DATA.jczq.dualLimit = mix > all.length * 0.5 ? 1 : 0.5;
+    global.CC_DATA.jczq.buy = buyLines(locked);
+    global.CC_DATA.jczq.env = locked.some((m) => m.env === "掺局区") ? "含掺局区，少买。" : "高可信为主。一场一锁。";
+    const mix = locked.filter((m) => m.env === "掺局区").length;
+    global.CC_DATA.jczq.dualLimit = mix > locked.length * 0.5 ? 1 : 0.5;
     global.CC_DATA._liveAt = pack.updatedAt;
     return all;
   }
@@ -745,6 +745,10 @@
   }
 
   function writeWhy(m) {
+    if (m.source !== "live") {
+      if (!m.action) m.action = m.dual ? "买两边" : "买一边";
+      return;
+    }
     if (global.CC_ENGINE && !m.engine) m.engine = CC_ENGINE.read(m);
     const e = m.engine;
     const why = [];
@@ -821,9 +825,7 @@
 
   function refreshBuy() {
     const jc = (global.CC_DATA || {}).jczq;
-    if (jc && jc.matches) jc.buy = buyLines(jc.matches);
-    const bd = (global.CC_DATA || {}).beidan;
-    if (bd && bd.matches) bd.buy = buyLines(bd.matches, "北单出手才进怎么买，列表仍全量");
+    if (jc && jc.matches) jc.buy = buyLines(jc.matches.filter((m) => m.source === "live" && !m.result));
   }
 
   function finish() {
@@ -832,10 +834,9 @@
     if (global.CC_NEWS) CC_NEWS.attachAll();
     if (global.CC_FORM) CC_FORM.attachAll();
     if (global.CC_ENGINE) CC_ENGINE.attachAll();
+    if (global.CC_DATA.beidan) global.CC_DATA.beidan.matches = [];
     applySteadyAll();
-    ["jczq", "beidan"].forEach((key) => {
-      capDual((((global.CC_DATA || {})[key] || {}).matches) || []);
-    });
+    capDual((((global.CC_DATA || {}).jczq || {}).matches || []).filter((m) => m.source === "live" && !m.result));
     ["jczq", "beidan", "r14", "r9"].forEach((key) => {
       realign(((global.CC_DATA || {})[key] || {}).matches);
     });

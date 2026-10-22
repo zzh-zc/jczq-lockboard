@@ -96,12 +96,13 @@
   }
 
   function topStats() {
-    const j = dualStats(CC_DATA.jczq.matches.filter((m) => m.source === "live" || !m.result));
-    const b = CC_DATA.beidan.matches || [];
+    const live = (CC_DATA.jczq.matches || []).filter((m) => m.source === "live" && !m.result);
+    const hist = (CC_DATA.jczq.matches || []).filter((m) => m.source !== "live" || m.result);
+    const j = dualStats(live);
     const r14 = CC_DATA.r14.matches || [];
     $("topStats").innerHTML = `
       <div class="stat"><b>${j.total}</b><span>竞彩在售</span></div>
-      <div class="stat"><b>${b.length}</b><span>北单在售</span></div>
+      <div class="stat"><b>${hist.length}</b><span>历史预测</span></div>
       <div class="stat"><b>${(CC_DATA.r9.matches || []).length}/${r14.length}</b><span>任9 / 任14</span></div>
     `;
   }
@@ -109,9 +110,15 @@
   function jumpDateForView() {
     const data = (state.view === "news" || state.view === "results") ? CC_DATA.jczq : CC_DATA[state.view];
     if (!data || !data.matches) return;
+    if (data.matches.some((m) => m.date === state.date && m.source === "live" && !m.result)) return;
+    const upcoming = [...new Set(data.matches.filter((m) => m.source === "live" && !m.result).map((m) => m.date).filter(Boolean))].sort();
+    if (upcoming.length) {
+      state.date = upcoming.find((d) => d >= TODAY) || upcoming[0];
+      return;
+    }
     if (data.matches.some((m) => m.date === state.date)) return;
     const dates = [...new Set(data.matches.map((m) => m.date).filter(Boolean))].sort();
-    if (dates.length) state.date = dates[0];
+    if (dates.length) state.date = dates[dates.length - 1];
   }
 
   function filtered(matches) {
@@ -787,6 +794,7 @@
   }
 
   function render() {
+    if (state.view === "beidan") state.view = "jczq";
     if (state.view === "review") return renderReview();
     if (state.view === "rules") return renderRules();
     if (state.view === "news") return renderNews();
@@ -962,25 +970,21 @@
         if (window.CC_LIVE.pullScores) await CC_LIVE.pullScores(pack.matches);
         if (window.CC_BOOKS) pack = await CC_BOOKS.enrich(pack);
         const locked = CC_PRED.apply(pack);
-        let bd = { matches: [], live: false };
         let sfc = { matches: [], live: false, draw: "" };
-        try { bd = await CC_LIVE.pullBjdc(); } catch (e1) { bd = { matches: [], live: false }; }
         try { sfc = await CC_LIVE.pullSfc(); } catch (e2) { sfc = { matches: [], live: false, draw: "" }; }
-        CC_PRED.applyBeidan(bd, locked);
         CC_PRED.applySfc(sfc, locked);
         CC_PRED.finish();
         const r9Tab = document.querySelector('[data-view="r9"]');
         const r14Tab = document.querySelector('[data-view="r14"]');
-        const bdTab = document.querySelector('[data-view="beidan"]');
         if (r9Tab) r9Tab.textContent = "任 9 · " + (sfc.draw || CC_DATA.r9.draw || "");
         if (r14Tab) r14Tab.textContent = "任 14 · " + (sfc.draw || CC_DATA.r14.draw || "");
-        if (bdTab) bdTab.textContent = "北单 · " + (CC_DATA.beidan.matches || []).length;
         jumpDateForView();
         topStats();
         render();
         if (hint) {
           const booksTag = pack.booksLive ? " · 含500百家" : pack.booksOk ? " · 500百家缓存" : "";
-          hint.textContent = `算法 ${new Date().toTimeString().slice(0, 5)} · 竞彩${locked.length} · 北单${(CC_DATA.beidan.matches || []).length}${booksTag}`;
+          const hist = (CC_DATA.jczq.matches || []).filter((m) => m.source !== "live" || m.result).length;
+          hint.textContent = `算法 ${new Date().toTimeString().slice(0, 5)} · 竞彩${locked.length} · 历史${hist}${booksTag}`;
         }
       } else {
         throw new Error("no live");
@@ -1020,16 +1024,6 @@
   try {
     if (window.CC_PRED && window.CC_JC_CACHE && CC_JC_CACHE.matches && CC_JC_CACHE.matches.length) {
       const locked = CC_PRED.apply(CC_JC_CACHE);
-      if (window.CC_BJDC_CACHE) {
-        const bd = {
-          updatedAt: CC_BJDC_CACHE.updatedAt,
-          live: false,
-          matches: (CC_BJDC_CACHE.matches || []).map((m) => Object.assign({}, m, {
-            league: window.CC_LIVE ? CC_LIVE.shortLeague(m.league) : m.league,
-          })),
-        };
-        CC_PRED.applyBeidan(bd, locked);
-      }
       if (window.CC_SFC_CACHE) CC_PRED.applySfc(CC_SFC_CACHE, locked);
       CC_PRED.finish();
       if (window.CC_LIVE && CC_LIVE.pullScores) {
@@ -1042,6 +1036,7 @@
     if (window.CC_PRED && CC_PRED.explainAll) CC_PRED.explainAll();
   }
   topStats();
+  jumpDateForView();
   render();
   refreshData();
 })();
