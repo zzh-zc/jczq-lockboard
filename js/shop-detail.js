@@ -1,6 +1,6 @@
 (function (global) {
   const POS = { Keeper: "门将", Defender: "后卫", Midfielder: "中场", Attacker: "前锋", 门将: "门将", 后卫: "后卫", 中场: "中场", 前锋: "前锋" };
-  const JUNK = /U-18|官方会员|女足|画廊|ArchDaily|预测分析|集锦|超话|抽奖|直播$|[\u3040-\u30ff]/;
+  const JUNK = /U-18|官方会员|女足|画廊|ArchDaily|预测分析|集锦|超话|抽奖|直播$|武磊|海港|舞蹈|折体住宅|[\u3040-\u30ff]/;
 
   function esc(s) {
     return String(s || "").replace(/[&<>"']/g, (c) => ({
@@ -207,7 +207,13 @@
   }
 
   function newsBits(rows) {
-    return (rows || []).filter((x) => x && x.title && !JUNK.test(x.title + (x.summary || "")) && x.kind !== "转会" && x.kind !== "伤停").slice(0, 3);
+    const seen = {};
+    return (rows || []).filter((x) => {
+      if (!x || !x.title || JUNK.test(x.title + (x.summary || "")) || x.kind === "转会" || x.kind === "伤停") return false;
+      if (seen[x.title]) return false;
+      seen[x.title] = true;
+      return true;
+    }).slice(0, 2);
   }
 
   function transferLine(rows, name) {

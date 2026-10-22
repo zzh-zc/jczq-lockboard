@@ -139,9 +139,10 @@ body { padding-bottom: 88px; }
   background: linear-gradient(135deg, #ff7a3d, #9b1d3a);
   padding: 16px 12px; text-align: center;
 }
-.shop-subtabs { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; margin: 12px; }
+.shop-subtabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin: 12px; }
 .shop-subtabs button {
-  border: 0; border-radius: 999px; padding: 10px 4px; background: rgba(255,255,255,0.08); color: var(--muted); font-size: 12px;
+  border: 0; border-radius: 999px; padding: 10px 0; background: rgba(255,255,255,0.08); color: var(--muted);
+  font-size: 11px; white-space: nowrap;
 }
 .shop-subtabs button.on { background: linear-gradient(180deg, #ff9a4a, #e85d2a); color: #2a1008; font-weight: 800; }
 .shop-block {
