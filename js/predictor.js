@@ -1207,6 +1207,7 @@
     }
     hydrateHistory();
     if (global.CC_FORM) CC_FORM.attachAll();
+    if (global.CC_EXTRAS && CC_EXTRAS.applyOpen) CC_EXTRAS.applyOpen();
     explainAll();
     if (global.CC_RESULT && CC_RESULT.attachList) {
       ["jczq", "beidan", "r14", "r9"].forEach((key) => {
