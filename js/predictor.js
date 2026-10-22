@@ -273,6 +273,7 @@
       { name: "SP", text: `${sp}。让球 ${locked.handicap || "0"}。欧 ${eu} 亚 ${ah}。` },
       { name: "伤停轮换", text: "未知。算法不拿空伤停改号。" },
       { name: "发布会", text: "未知。" },
+      { name: "战意", text: "未知。等新闻和近况补。" },
     ];
     return locked;
   }
@@ -636,9 +637,13 @@
 
   function actionOf(m) {
     const g = m.engine && m.engine.gate;
+    const will = m.will || (global.CC_FORM && CC_FORM.willOf && CC_FORM.willOf(m));
+    if (will && !m.will) m.will = will;
     if (m.light === "red" || g === "别碰") return "别碰";
     if (m.lock === false) return "路过";
+    if (will && will.gap === "都轻") return "路过";
     if (m.env === "掺局区" || m.tag === "名额满才单") return "少买";
+    if (will && (will.gap === "主更重" || will.gap === "客更重" || will.gap === "主更轻" || will.gap === "客更轻") && m.light === "green") return "少买";
     if (g === "不出手" || g === "路过") return "路过";
     if (m.dual) return "买两边";
     if (m.light === "green") return "买一边";
@@ -685,12 +690,27 @@
       });
     }
     writeWhyForm(m, why);
+    writeWhyWill(m, why);
     const act = actionOf(m);
     const pick = String(m.pick || "").replace(/主/g, "胜").replace(/客/g, "负");
     why.push({ from: "结论", fact: "倾向 " + pick + "，动作 " + act, so: actHint(act) });
     m.why = why;
     m.action = act;
     m.summary = why.map((x) => x.from + "：" + x.fact + " → " + x.so).join("。") + "。";
+  }
+
+  function writeWhyWill(m, why) {
+    const will = m.will || (global.CC_FORM && CC_FORM.willOf && CC_FORM.willOf(m));
+    if (will && !m.will) m.will = will;
+    if (!will) {
+      why.push({ from: "战意", fact: "未知", so: "不拿空战意改号" });
+      return;
+    }
+    why.push({
+      from: "战意",
+      fact: will.text,
+      so: will.unpriced ? "有未定价轮换，只改出手不改方向" : (will.gap === "都轻" ? "两边都可能降档，路过" : "公开战意已定价，不推翻盘口"),
+    });
   }
 
   function writeWhyForm(m, why) {
@@ -735,8 +755,8 @@
   function finish() {
     if (global.CC_EXTRAS) global.CC_EXTRAS.attach();
     else if (global.CC_ENGINE) global.CC_ENGINE.attachAll();
-    if (global.CC_FORM) CC_FORM.attachAll();
     if (global.CC_NEWS) CC_NEWS.attachAll();
+    if (global.CC_FORM) CC_FORM.attachAll();
     if (global.CC_ENGINE) CC_ENGINE.attachAll();
     ["jczq", "beidan", "r14", "r9"].forEach((key) => {
       realign(((global.CC_DATA || {})[key] || {}).matches);
