@@ -648,7 +648,13 @@
       const nums = String(twin.sp).match(/(\d+\.\d+)/g) || [];
       o = { h: n(nums[0]), d: n(nums[1]), a: n(nums[2]) };
     }
-    if (!o.h || !o.d || !o.a) o = { h: 2.40, d: 3.30, a: 2.50 };
+    if (!o.h || !o.d || !o.a) {
+      const list = ((global.CC_BJDC_CACHE || {}).matches) || [];
+      const same = (global.CC_RESULT && CC_RESULT.sameTeam) ? CC_RESULT.sameTeam : (a, b) => a === b;
+      const b = list.find((x) => same(x.home, raw.home) && same(x.away, raw.away));
+      if (b && b.had) o = { h: n(b.had.h), d: n(b.had.d), a: n(b.had.a) };
+    }
+    if (!o.h || !o.d || !o.a) return null;
     const eu = hottest(o);
     const env = envOf(raw.league);
     const locked = decide(eu, env, o, raw.league);
@@ -768,8 +774,11 @@
   function apply(pack) {
     const old = (global.CC_DATA.jczq && global.CC_DATA.jczq.matches) || [];
     const locked = pack.matches.map((raw) => {
+      if (global.CC_ODDS && CC_ODDS.scrubUnplayed) CC_ODDS.scrubUnplayed(raw);
       const prev = findOld(raw, old);
-      const done = raw.score || raw.result || (prev && (prev.score || prev.result));
+      if (prev && global.CC_ODDS && CC_ODDS.scrubUnplayed) CC_ODDS.scrubUnplayed(prev);
+      const started = global.CC_ODDS && CC_ODDS.kickedOff ? CC_ODDS.kickedOff(raw) || CC_ODDS.kickedOff(prev) : true;
+      const done = started && (raw.score || raw.result || (prev && (prev.score || prev.result)));
       if (prev && done && prev.pick) {
         stampLiveOnto(prev, raw);
         return prev;
@@ -842,7 +851,14 @@
     global.CC_DATA.r9.stake = st9;
     global.CC_DATA.r9.dualLimit = 1;
     global.CC_DATA.r9.env = "9 场控制 32 元：4 双 5 单。";
-    return { r9, r14 };
+    if (global.CC_EXTRAS && CC_EXTRAS.applySfcOpen) CC_EXTRAS.applySfcOpen();
+    const r14b = global.CC_DATA.r14.matches || r14;
+    const r9b = global.CC_DATA.r9.matches || r9;
+    global.CC_DATA.r14.stake = stakeOf(r14b);
+    global.CC_DATA.r14.buy = sfcBuy(r14b, pack, "任14");
+    global.CC_DATA.r9.stake = stakeOf(r9b);
+    global.CC_DATA.r9.buy = sfcBuy(r9b, pack, "任9");
+    return { r9: r9b, r14: r14b };
   }
 
   function euFromPick(m) {
@@ -1208,6 +1224,7 @@
     hydrateHistory();
     if (global.CC_FORM) CC_FORM.attachAll();
     if (global.CC_EXTRAS && CC_EXTRAS.applyOpen) CC_EXTRAS.applyOpen();
+    if (global.CC_EXTRAS && CC_EXTRAS.applySfcOpen) CC_EXTRAS.applySfcOpen();
     explainAll();
     if (global.CC_RESULT && CC_RESULT.attachList) {
       ["jczq", "beidan", "r14", "r9"].forEach((key) => {

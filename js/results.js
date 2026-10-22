@@ -23,6 +23,15 @@
     [/国际米兰|国米/, "国米"],
     [/勒沃库森/, "药厂"],
     [/OFI克里特|克里特/, "克里特"],
+    [/格拉茨风暴|格风暴/, "风暴"],
+    [/萨格勒布迪纳摩|萨迪纳摩/, "萨格勒布"],
+    [/波兹南莱赫|波兹南/, "波兹南"],
+    [/贝西克塔斯|贝西克塔/, "贝西克塔"],
+    [/利勒斯特罗姆|利勒斯特/, "利勒斯特"],
+    [/维戈塞尔塔|塞尔塔/, "塞尔塔"],
+    [/亚拉腊|阿拉拉特亚美尼亚|阿拉拉特/, "亚拉腊"],
+    [/比亚韦斯托克|乔治罗尼亚/, "比亚韦"],
+    [/拉普拉塔大学生|拉普大学/, "拉普"],
   ];
 
   function core(s) {
@@ -137,13 +146,19 @@
     });
   }
 
+  function sameIssue(a, b) {
+    const da = String((a && (a.issueDate || a.date)) || "");
+    const db = String((b && (b.issueDate || b.date)) || "");
+    return !!(da && db && da === db);
+  }
+
   function lookup(m) {
     if (!m) return null;
     const list = all();
     const code = slotCode(m.slot || m.code);
-    const slotHit = code && list.find((r) => slotCode(r.slot || r.code) === code && sameTeam(r.home, m.home) && sameTeam(r.away, m.away));
+    const slotHit = code && list.find((r) => slotCode(r.slot || r.code) === code && sameTeam(r.home, m.home) && sameTeam(r.away, m.away) && sameIssue(r, m));
     if (slotHit) return slotHit;
-    return list.find((r) => sameTeam(r.home, m.home) && sameTeam(r.away, m.away) && nearDay(r, m)) || null;
+    return list.find((r) => sameTeam(r.home, m.home) && sameTeam(r.away, m.away) && sameIssue(r, m)) || null;
   }
 
   function parseScore(s) {
@@ -215,6 +230,9 @@
   }
 
   function chips(m) {
+    if (global.CC_ODDS && CC_ODDS.kickedOff && !CC_ODDS.kickedOff(m) && m.liveState !== "live") {
+      return { had: null, ttg: null, crs: null, hafu: null };
+    }
     if (!m || (!m.result && !m.score)) return { had: null, ttg: null, crs: null, hafu: null };
     const hasTtg = ((m.ttgPicks || m.ftOu || []).length > 0);
     const hasCrs = ((m.ftScores || []).length > 0);
@@ -252,6 +270,8 @@
 
   function attachList(list) {
     (list || []).forEach((m) => {
+      if (global.CC_ODDS && CC_ODDS.scrubUnplayed) CC_ODDS.scrubUnplayed(m);
+      if (global.CC_ODDS && CC_ODDS.kickedOff && !CC_ODDS.kickedOff(m) && m.liveState !== "live") return;
       const hit = lookup(m);
       if (hit) {
         m.score = m.score || hit.score;

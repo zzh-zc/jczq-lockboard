@@ -214,5 +214,32 @@
     `;
   }
 
-  global.CC_ODDS = { BOOKS, parseSp, addDays, todayIso, matchDate, enrichMatch, drawChart, weekdayOf, issueWd, issueDateOf, stampIssue };
+  function kickTs(m) {
+    const date = (m && m.date) || "";
+    const ko = String((m && m.kickoff) || "00:00");
+    const t = Date.parse(date + "T" + ko + ":00+08:00");
+    return Number.isFinite(t) ? t : NaN;
+  }
+
+  function kickedOff(m) {
+    if (!m) return false;
+    if (m.liveState === "live") return true;
+    const t = kickTs(m);
+    if (!Number.isFinite(t)) return false;
+    return Date.now() >= t - 2 * 60 * 1000;
+  }
+
+  function scrubUnplayed(m) {
+    if (!m || kickedOff(m) || m.liveState === "live") return m;
+    m.score = "";
+    m.result = "";
+    m.htScore = "";
+    m.halfScore = "";
+    m.liveScore = "";
+    if (m.liveState === "ft") m.liveState = "";
+    m.hit = null;
+    return m;
+  }
+
+  global.CC_ODDS = { BOOKS, parseSp, addDays, todayIso, matchDate, enrichMatch, drawChart, weekdayOf, issueWd, issueDateOf, stampIssue, kickedOff, kickTs, scrubUnplayed };
 })(window);

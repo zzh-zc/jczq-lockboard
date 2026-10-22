@@ -228,6 +228,15 @@
 
   function stampLive(m, hit) {
     if (!hit) return;
+    const started = hit.liveState === "live" || hit.liveState === "ft";
+    if (!started) {
+      m.liveState = "ns";
+      m.liveScore = "";
+      m.liveMinute = "";
+      if (global.CC_ODDS && CC_ODDS.scrubUnplayed) CC_ODDS.scrubUnplayed(m);
+      if (hit.id) m.matchId = m.matchId || hit.id;
+      return;
+    }
     m.liveScore = hit.score || "";
     m.liveState = hit.liveState || "";
     m.liveMinute = hit.liveMinute || "";
@@ -316,7 +325,7 @@
     }
     list.forEach((m) => {
       const news = newsOf(m);
-      const hit = (m.matchId && byId[String(m.matchId)]) || (news.matchId && byId[String(news.matchId)]) || (news.homeId && byHome[String(news.homeId)]);
+      const hit = (m.matchId && byId[String(m.matchId)]) || (news.matchId && byId[String(news.matchId)]);
       stampLive(m, hit);
     });
     await fillHalfScores(list, byId);

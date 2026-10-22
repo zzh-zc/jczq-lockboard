@@ -307,33 +307,13 @@
 
   const r14 = {
     id: "r14",
-    title: "胜负彩 / 任 14 · 26146",
-    date: "2026-10-21",
-    version: "截前终稿。后 7 场今晚才踢",
-    env: "任14 已截止，后7场只核竞彩",
+    title: "胜负彩 / 任 14",
+    date: "2026-10-23",
+    version: "打开后按当期胜负彩重算",
+    env: "14 场全锁。预算不超过 400 元，胶着才双选。",
     dualLimit: 1,
-    buy: [
-      "主推：3 3 3 3 0 3 0 3 3 3 0 3 3 3",
-      "深盘 2/6/10/14 按规则应加 1，禁止死胆",
-      "第 3 场不要因为客热改成 0，主推仍 3、包 1",
-      "任 14 已截止，后 7 场只核竞彩，不再动任 14",
-    ],
-    matches: [
-      { code: "1", league: "欧冠", kickoff: "已赛", home: "利物浦", away: "黄潜", sp: "", pick: "3", dual: true, combo: "31", result: "3", hit: true, summary: "4-3。索博、弗林蓬确认不上。主推中。", factors: [] },
-      { code: "2", league: "欧冠", kickoff: "已赛", home: "曼城", away: "AEK", sp: "", pick: "3", dual: true, combo: "31", result: "3", hit: true, summary: "5-1。哈兰德疑，1.11 禁止死胆。主推中。", factors: [] },
-      { code: "3", league: "欧冠", kickoff: "已赛", home: "那不勒斯", away: "博德闪耀", sp: "", pick: "3", dual: true, combo: "31", result: "3", hit: true, summary: "4-3。客热 31%，主推仍 3（蒙扎课）。主推中。", factors: [] },
-      { code: "4", league: "欧冠", kickoff: "已赛", home: "波尔图", away: "PSV", sp: "", pick: "3", dual: true, combo: "31", result: "0", hit: false, summary: "0-1。主推挂，复式也挂：包了 31，出的是客。", factors: [] },
-      { code: "5", league: "欧冠", kickoff: "已赛", home: "巴黎", away: "巴萨", sp: "", pick: "0", dual: true, combo: "30", result: "3", hit: false, summary: "4-2。主推客挂，复式中。对开盘主推不该站短边。", factors: [] },
-      { code: "6", league: "欧冠", kickoff: "已赛", home: "罗马", away: "布拉迪", sp: "", pick: "3", dual: true, combo: "31", result: "3", hit: true, summary: "4-0。1.12–1.15 禁止死胆。主推中。", factors: [] },
-      { code: "7", league: "欧冠", kickoff: "已赛", home: "斯图加特", away: "马竞", sp: "", pick: "0", dual: true, combo: "10", result: "1", hit: false, summary: "1-1。主推客挂，复式中。竞彩下午砍平，任 14 仍带了平。", factors: [] },
-      { code: "8", league: "欧冠", kickoff: "00:45", home: "科莫", away: "曼联", sp: "2.15 / 2.67", pick: "3", dual: true, combo: "30", summary: "竞彩主/客。主推 3，复式 30。", factors: [] },
-      { code: "9", league: "欧冠", kickoff: "00:45", home: "里尔", away: "加拉塔萨雷", sp: "1.90 / 3.15", pick: "3", dual: true, combo: "31", summary: "竞彩主/平。复式 31。", factors: [] },
-      { code: "10", league: "欧冠", kickoff: "03:00", home: "维拉", away: "维京", sp: "1.15", pick: "3", dual: true, combo: "31", summary: "维京刚 3-3 拜仁。1.15 禁止死胆。", factors: [] },
-      { code: "11", league: "欧冠", kickoff: "03:00", home: "拜仁", away: "阿森纳", sp: "1.89 / 3.14", pick: "0", dual: true, combo: "30", summary: "竞彩主/客。主推 0，复式 30。", factors: [] },
-      { code: "12", league: "欧冠", kickoff: "03:00", home: "布鲁日", away: "朗斯", sp: "1.90", pick: "3", dual: true, combo: "31", summary: "竞彩更窄单主，任 14 仍 31。", factors: [] },
-      { code: "13", league: "欧冠", kickoff: "03:00", home: "贝蒂斯", away: "费耶诺德", sp: "1.43", pick: "3", dual: true, combo: "31", summary: "1.43 必须带平。", factors: [] },
-      { code: "14", league: "欧冠", kickoff: "03:00", home: "皇马", away: "莱比锡", sp: "1.15", pick: "3", dual: true, combo: "31", summary: "1.15 / 1.24 禁止死胆。", factors: [] },
-    ],
+    buy: ["打开后按当期胜负彩重算任14。"],
+    matches: [],
   };
 
   const review = {

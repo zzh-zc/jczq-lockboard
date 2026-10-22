@@ -60,7 +60,8 @@
   }
 
   function absorb(keep, drop) {
-    if (!keep.score && drop.score) {
+    const started = global.CC_ODDS && CC_ODDS.kickedOff ? CC_ODDS.kickedOff(keep) || CC_ODDS.kickedOff(drop) : true;
+    if (started && !keep.score && drop.score) {
       keep.score = drop.score;
       keep.result = keep.result || drop.result;
     }
@@ -147,11 +148,12 @@
         map.set(k, m);
         return;
       }
-      if (!hit.result && m.result) {
+      const started = global.CC_ODDS && CC_ODDS.kickedOff ? CC_ODDS.kickedOff(hit) || CC_ODDS.kickedOff(m) : true;
+      if (started && !hit.result && m.result) {
         hit.result = m.result;
         hit.score = hit.score || m.score;
       }
-      if (!hit.score && m.score) hit.score = m.score;
+      if (started && !hit.score && m.score) hit.score = m.score;
       if (!hit.htScore && (m.htScore || m.halfScore)) hit.htScore = m.htScore || m.halfScore;
       if (!hit.pick && m.pick) hit.pick = m.pick;
       if ((hit.score || hit.result || m.score || m.result) && m.ttgPicks && m.ttgPicks.length) {

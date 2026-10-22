@@ -695,6 +695,58 @@
     return rows;
   }
 
+  const OPEN_SFC = [
+    { code: "1", home: "亚拉腊", away: "阿尔克马尔", combo: "10", sp: "5.80 / 4.48 / 1.50", r9: false },
+    { code: "2", home: "萨格勒布迪纳摩", away: "奈梅亨", combo: "31", sp: "1.42 / 4.22 / 5.30", r9: true },
+    { code: "3", home: "尤文图斯", away: "雷恩", combo: "31", sp: "1.42 / 4.15 / 5.45", r9: true },
+    { code: "4", home: "波兹南莱赫", away: "桑德兰", combo: "3", sp: "4.50 / 3.70 / 1.57", r9: false },
+    { code: "5", home: "克里特", away: "勒沃库森", combo: "10", sp: "11.06 / 6.80 / 1.21", r9: true },
+    { code: "6", home: "格拉茨风暴", away: "马赛", combo: "3", sp: "3.30 / 3.65 / 1.81", r9: true },
+    { code: "7", home: "贝西克塔斯", away: "水晶宫", combo: "3", sp: "2.08 / 3.43 / 2.80", r9: true },
+    { code: "8", home: "伯恩茅斯", away: "AC米兰", combo: "3", sp: "1.80 / 3.55 / 3.42", r9: true },
+    { code: "9", home: "凯尔特人", away: "维戈塞尔塔", combo: "3", sp: "2.48 / 3.25 / 2.39", r9: true },
+    { code: "10", home: "霍芬海姆", away: "里昂", combo: "0", sp: "1.80 / 3.90 / 3.15", r9: true },
+    { code: "11", home: "比亚韦斯托克", away: "安德莱赫特", combo: "0", sp: "3.00 / 3.53 / 2.24", r9: false },
+    { code: "12", home: "利勒斯特罗姆", away: "皇家社会", combo: "10", sp: "5.20 / 4.30 / 1.42", r9: false },
+    { code: "13", home: "奥林匹亚科斯", away: "布拉格斯巴达", combo: "31", sp: "1.50 / 4.36 / 5.97", r9: false },
+    { code: "14", home: "奥莫尼亚", away: "本菲卡", combo: "10", sp: "7.76 / 5.10 / 1.35", r9: true },
+  ];
+
+  function sfcComboOf(combo) {
+    const map = { "3": "主", "1": "平", "0": "客" };
+    const c = String(combo || "3");
+    return {
+      combo: c,
+      dual: c.length > 1,
+      pick: c.split("").map((ch) => map[ch] || ch).join("/"),
+      tag: c.length === 1 ? "单出" : (c.length === 3 ? "三选" : "双选"),
+    };
+  }
+
+  function applySfcOpen() {
+    const pack = (global.CC_DATA || {}).r14 || {};
+    const rows = pack.matches || [];
+    if (!rows.length) return;
+    OPEN_SFC.forEach((src) => {
+      const hit = rows.find((m) => String(m.code) === String(src.code) || (sameOpen(m.home, src.home) && sameOpen(m.away, src.away)));
+      if (!hit) return;
+      Object.assign(hit, sfcComboOf(src.combo));
+      if (src.sp) hit.sp = src.sp;
+      hit.lock = true;
+      hit.env = "中可信";
+    });
+    const nine = OPEN_SFC.filter((x) => x.r9).map((src) => {
+      const hit = rows.find((m) => String(m.code) === String(src.code) || (sameOpen(m.home, src.home) && sameOpen(m.away, src.away)));
+      return hit ? Object.assign({}, hit) : null;
+    }).filter(Boolean);
+    if (nine.length) {
+      global.CC_DATA.r9.matches = nine;
+      global.CC_DATA.r9.draw = pack.draw || global.CC_DATA.r9.draw;
+      global.CC_DATA.r9.title = "任 9 · " + (pack.draw || "");
+      global.CC_DATA.r9.date = nine[0] ? nine[0].date : global.CC_DATA.r9.date;
+    }
+  }
+
   function attach() {
     if (!global.CC_DATA._pastMerged) {
       PAST_JC.forEach((m) => {
@@ -704,11 +756,11 @@
     }
     mergeMissing(OPEN_JC, "");
     applyOpen();
+    applySfcOpen();
     const slateDate = { jczq: "2026-10-21", beidan: "2026-10-21", r14: "2026-10-21", r9: "2026-10-21" };
     ["jczq", "beidan", "r14", "r9"].forEach((key) => {
       if (!global.CC_DATA[key] || !global.CC_DATA[key].matches) return;
       (global.CC_DATA[key].matches || []).forEach((m) => {
-        if (key === "r14" && m.source !== "live") m.date = Number(m.code) <= 7 ? "2026-10-20" : "2026-10-22";
         const live = m.source === "live" || m._mk;
         if (!live && !m.result && !(m.ttgPicks && m.ttgPicks.length)) Object.assign(m, defaultExtras(m));
         delete m.agents;
@@ -730,6 +782,6 @@
     });
   }
 
-  global.CC_EXTRAS = { attach, tally, applyOpen };
+  global.CC_EXTRAS = { attach, tally, applyOpen, applySfcOpen };
   if (global.CC_DATA) attach();
 })(window);

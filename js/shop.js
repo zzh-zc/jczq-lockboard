@@ -36,7 +36,11 @@
 
   function all() {
     const list = (((global.CC_DATA || {}).jczq || {}).matches || []).filter((m) => m && m.source !== "sfc-history");
-    const stamped = list.map((m) => (global.CC_ODDS && CC_ODDS.stampIssue ? CC_ODDS.stampIssue(m) : m));
+    const stamped = list.map((m) => {
+      const row = (global.CC_ODDS && CC_ODDS.stampIssue) ? CC_ODDS.stampIssue(m) : m;
+      if (global.CC_ODDS && CC_ODDS.scrubUnplayed) CC_ODDS.scrubUnplayed(row);
+      return row;
+    });
     if (global.CC_BOARD && CC_BOARD.pruneList) return CC_BOARD.pruneList(stamped);
     return stamped;
   }
@@ -179,8 +183,9 @@
   }
 
   function liveMark(m) {
+    const started = (global.CC_ODDS && CC_ODDS.kickedOff) ? CC_ODDS.kickedOff(m) : (m.liveState === "live" || m.liveState === "ft");
     if (m.liveState === "live") return `<span class="shop-pill live">${esc(scoreText(m) || m.liveScore || "0-0")} ${esc(m.liveMinute || "")}</span>`;
-    if (m.score) return `<span class="shop-result">${esc(scoreText(m))}</span>`;
+    if (started && m.score) return `<span class="shop-result">${esc(scoreText(m))}</span>`;
     return "";
   }
 
