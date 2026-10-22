@@ -37,9 +37,19 @@
       const d = CC_REVIEW.dates();
       if (d.length) return d.slice(-16);
     }
-    const have = [...new Set(all().map((m) => m.date).filter(Boolean))].sort();
-    if (!have.length) return [today()];
-    return have;
+    const t = today();
+    const add = (global.CC_ODDS && CC_ODDS.addDays) ? CC_ODDS.addDays : (iso, n) => {
+      const d = new Date(iso + "T12:00:00");
+      d.setDate(d.getDate() + n);
+      const p = (x) => String(x).padStart(2, "0");
+      return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+    };
+    const days = [];
+    for (let i = 9; i >= 0; i -= 1) days.push(add(t, -i));
+    all().forEach((m) => {
+      if (m.date && m.date > t && days.indexOf(m.date) < 0) days.push(m.date);
+    });
+    return days.sort();
   }
 
   function wd(iso) {

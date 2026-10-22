@@ -161,7 +161,7 @@
   }
 
   function ours() {
-    return ledger().filter((m) => m.pick && (m.result || m.score) && m.source !== "sfc-history");
+    return ledger().filter((m) => m.pick && (m.result || m.score) && m.source !== "sfc-history" && m.source !== "hist");
   }
 
   function monthPack() {

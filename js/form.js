@@ -1,15 +1,15 @@
 (function (global) {
   const POS = { Keeper: "门将", Defender: "后卫", Midfielder: "中场", Attacker: "前锋" };
   const PROFS = [
-    { re: /意甲|法甲|葡超|奥甲|波甲|土超|苏超/, style: "grind", draw: "high", goals: "small", note: "小球、平局和让平偏多" },
-    { re: /日职|日乙|韩K|K联|瑞超|芬超/, style: "grind", draw: "high", goals: "small", note: "掺局小球，平/让平先于单边" },
-    { re: /西甲/, style: "mid", draw: "high", goals: "mid", note: "平局偏多，主热也先带平" },
-    { re: /英超/, style: "open", draw: "mid", goals: "big", note: "大球偏多，平也常见" },
-    { re: /德甲|荷甲|比甲|澳超|美职/, style: "open", draw: "low", goals: "big", note: "对攻大球多" },
-    { re: /欧冠/, style: "open", draw: "low", goals: "big", note: "欧冠大球偏多，平偏少" },
-    { re: /解放者/, style: "open", draw: "mid", goals: "big", note: "解放者对攻偏多" },
-    { re: /欧罗巴|欧协|欧国联/, style: "mid", draw: "mid", goals: "mid", note: "中可信，大小球看交手和近况" },
-    { re: /英冠|法乙|德乙/, style: "mid", draw: "mid", goals: "mid", note: "客队常有戏，不默认主不败" },
+    { re: /意甲|法甲|葡超|奥甲|波甲|土超|苏超/, style: "grind", draw: "mid", tilt: 0.97, note: "小球、平局概率略高，不默认小分或带平" },
+    { re: /日职|日乙|韩K|K联|瑞超|芬超/, style: "grind", draw: "mid", tilt: 0.97, note: "掺局区小球概率略高，最终看出球盘和交手" },
+    { re: /西甲/, style: "mid", draw: "mid", tilt: 1, note: "平局概率略高，主热也不默认带平" },
+    { re: /英超/, style: "open", draw: "mid", tilt: 1.03, note: "大球概率略高，照样会出小球" },
+    { re: /德甲|荷甲|比甲|澳超|美职/, style: "open", draw: "mid", tilt: 1.03, note: "对攻概率略高，不默认大分" },
+    { re: /欧冠/, style: "open", draw: "mid", tilt: 1.03, note: "大球概率略高，深盘冷门照样磨" },
+    { re: /解放者/, style: "open", draw: "mid", tilt: 1.03, note: "对攻概率略高，跟这场交手和进球盘" },
+    { re: /欧罗巴|欧协|欧国联/, style: "mid", draw: "mid", tilt: 1, note: "中可信，大小球看出球盘、交手和近况" },
+    { re: /英冠|法乙|德乙/, style: "mid", draw: "mid", tilt: 1, note: "客队常有戏，不默认主不败" },
   ];
 
   function monthOverlay(league) {
@@ -36,15 +36,23 @@
 
   function leagueProfile(league) {
     const g = String(league || "");
-    const hit = PROFS.find((p) => p.re.test(g)) || { style: "mid", draw: "mid", goals: "mid", note: "联赛风格不明，先看交手和进球盘" };
+    const hit = PROFS.find((p) => p.re.test(g)) || { style: "mid", draw: "mid", tilt: 1, note: "联赛风格不明，先看出球盘、交手和近况" };
     const mon = monthOverlay(g);
-    const out = { league: g, style: hit.style, draw: hit.draw, goals: hit.goals, note: hit.note, month: mon };
-    if (mon) {
-      if (mon.draw >= 0.28) out.draw = "high";
+    const out = {
+      league: g,
+      style: hit.style,
+      draw: hit.draw,
+      tilt: hit.tilt != null ? hit.tilt : 1,
+      goals: "mid",
+      note: hit.note,
+      month: mon,
+    };
+    if (mon && mon.n >= 8) {
+      out.tilt = Math.max(0.94, Math.min(1.08, 0.55 * out.tilt + 0.45 * (mon.avgTot / 2.6)));
+      if (mon.draw >= 0.32) out.draw = "high";
       else if (mon.draw <= 0.12) out.draw = "low";
-      if (mon.small >= 0.45) out.goals = "small";
-      else if (mon.big >= 0.4) out.goals = "big";
-      out.note = hit.note + "。近一个月" + mon.n + "场场均" + mon.avgTot.toFixed(1) + "球，平" + Math.round(mon.draw * 100) + "%。";
+      else out.draw = "mid";
+      out.note = hit.note + "。近一个月" + mon.n + "场场均" + mon.avgTot.toFixed(1) + "球，平" + Math.round(mon.draw * 100) + "%。只作轻微倾向，出号跟这场数据。";
     }
     return out;
   }

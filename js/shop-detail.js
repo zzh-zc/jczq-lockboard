@@ -298,7 +298,7 @@
       <div class="shop-block">
         <h3>联赛风格</h3>
         <p>${esc(prof.note || "联赛风格不明。")}</p>
-        <p>${esc("平局档 " + (prof.draw || "mid") + " · 进球档 " + (prof.goals || "mid") + "。小球联赛偏平/让平，大球联赛跟对攻。")}</p>
+        <p>${esc("联赛只作轻微倾向（系数 " + (prof.tilt != null ? Number(prof.tilt).toFixed(2) : "1.00") + "），出号跟进球盘、交手和近况。")}</p>
       </div>
     `;
   }

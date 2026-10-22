@@ -105,8 +105,13 @@
 
   function pruneAndSave() {
     if (!global.CC_DATA || !CC_DATA.jczq) return [];
-    CC_DATA.jczq.matches = pruneList(CC_DATA.jczq.matches || []);
-    return save(CC_DATA.jczq.matches);
+    const list = pruneList(CC_DATA.jczq.matches || []);
+    const hist = list.filter((m) => m.source === "hist");
+    const real = list.filter((m) => m.source !== "hist");
+    save(real);
+    CC_DATA.jczq.matches = real.concat(hist);
+    if (global.CC_PRED && CC_PRED.hydrateHistory) CC_PRED.hydrateHistory();
+    return real;
   }
 
   global.CC_BOARD = { DAYS, today, cutIso, inWindow, keyOf, load, pruneAndSave, pruneList, save };

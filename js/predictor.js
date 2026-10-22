@@ -52,7 +52,7 @@
   function profOf(m) {
     if (m && m.leagueProf) return m.leagueProf;
     if (global.CC_FORM && CC_FORM.leagueProfile) return CC_FORM.leagueProfile(m && m.league);
-    return { style: leagueStyle(m && m.league), draw: "mid", goals: "mid", note: "" };
+    return { style: leagueStyle(m && m.league), draw: "mid", tilt: 1, note: "" };
   }
 
   function h2hOf(m) {
@@ -84,17 +84,16 @@
         peak = i;
       }
     }
-    let aim = wsum ? sum / wsum : (night ? 2.7 : 2.4);
+    let aim = wsum ? sum / wsum : (night ? 2.65 : 2.45);
     const prof = profOf(m);
     const style = prof.style || leagueStyle(m && m.league);
-    const goals = prof.goals || (style === "grind" ? "small" : (style === "open" ? "big" : "mid"));
+    const tilt = prof.tilt != null ? prof.tilt : 1;
     const ft = formTotal(m);
     const h2h = h2hOf(m);
-    if (ft != null) aim = aim * 0.78 + ft * 0.22;
-    if (h2h && h2h.n >= 3 && h2h.avgTot) aim = aim * 0.72 + h2h.avgTot * 0.28;
-    if (goals === "small" || style === "grind") aim *= 0.90;
-    if (goals === "big" || style === "open") aim *= 1.08;
-    if (night && (goals === "big" || style === "open")) aim += 0.08;
+    if (ft != null) aim = aim * 0.72 + ft * 0.28;
+    if (h2h && h2h.n >= 3 && h2h.avgTot) aim = aim * 0.68 + h2h.avgTot * 0.32;
+    if (prof.month && prof.month.n >= 8 && prof.month.avgTot) aim = aim * 0.86 + prof.month.avgTot * 0.14;
+    aim *= tilt;
     const fav = had ? Math.min(had.h || 9, had.d || 9, had.a || 9) : 9;
     let margin = 0;
     if ((line || 0) <= -1.75) margin = 2.4;
@@ -107,7 +106,7 @@
       if (had.h < had.a - 0.35) margin = fav <= 1.28 ? 2.0 : fav <= 1.7 ? 1.15 : 0.65;
       else if (had.a < had.h - 0.35) margin = fav <= 1.28 ? -2.0 : fav <= 1.7 ? -1.15 : -0.65;
     }
-    return { aim: aim, peak: peak, margin: margin, line: line || 0, fav: fav, style: style, goals: goals, draw: prof.draw };
+    return { aim: aim, peak: peak, margin: margin, line: line || 0, fav: fav, style: style, tilt: tilt, draw: prof.draw };
   }
 
   function clip(x, lo, hi) {
@@ -179,15 +178,13 @@
       const o = n((ttg || {})["s" + i]);
       if (!o || o < 1.01) continue;
       let w = 1 / o;
-      const small = ctx && (ctx.goals === "small" || ctx.style === "grind");
-      const big = ctx && (ctx.goals === "big" || ctx.style === "open");
-      if (small) {
-        if (i === 1 || i === 2) w *= 1.14;
-        if (i >= 4) w *= 0.78;
-        if (i === 0) w *= 0.92;
-      } else if (big) {
-        if (i >= 4) w *= 1.12;
-        if (i <= 1) w *= 0.82;
+      const tilt = (ctx && ctx.tilt) || 1;
+      if (tilt < 0.99) {
+        if (i === 1 || i === 2) w *= 1.04;
+        if (i >= 4) w *= 0.96;
+      } else if (tilt > 1.01) {
+        if (i >= 4) w *= 1.04;
+        if (i <= 1) w *= 0.96;
       }
       if (drawOnly) w *= (i % 2 === 0 ? 1.28 : 0.48);
       rows.push({ i: i, o: o, w: w });
@@ -195,7 +192,8 @@
     if (!rows.length) {
       let core = Math.max(0, Math.min(6, Math.round((ctx && ctx.aim) || 2.5)));
       if (drawOnly && core % 2) core -= 1;
-      const alt = drawOnly ? core + 2 : ((ctx && (ctx.goals === "small" || ctx.style === "grind")) ? Math.max(0, core - 1) : core + 1);
+      const tilt = (ctx && ctx.tilt) || 1;
+      const alt = drawOnly ? core + 2 : (tilt < 0.99 ? Math.max(0, core - 1) : core + 1);
       const second = alt === core ? core + 1 : alt;
       return [ttgLab(core), ttgLab(second)];
     }
@@ -208,10 +206,9 @@
       second = rows.find((r) => r.i !== first.i && r.i % 2 === 0) || right || left || rows[1];
     } else if (left && right) {
       const close = Math.abs(left.w - right.w) < 0.04 * Math.max(left.w, right.w);
-      const small = ctx && (ctx.goals === "small" || ctx.style === "grind");
-      const big = ctx && (ctx.goals === "big" || ctx.style === "open");
-      if (close && small) second = left;
-      else if (close && big) second = right;
+      const tilt = (ctx && ctx.tilt) || 1;
+      if (close && tilt < 0.99) second = left;
+      else if (close && tilt > 1.01) second = right;
       else second = left.w >= right.w ? left : right;
     } else {
       second = left || right || rows[1] || first;
@@ -314,8 +311,8 @@
     return pad2(rows.map((r) => r.label), rows.map((r) => r.label));
   }
 
-  function fillMarkets(locked, raw, hadOdds, line) {
-    if (locked && (locked.score || locked.result)) return;
+  function fillMarkets(locked, raw, hadOdds, line, force) {
+    if (!force && locked && (locked.score || locked.result)) return;
     raw = raw || {};
     locked._mk = { crs: raw.crs, ttg: raw.ttg, hafu: raw.hafu, hhad: raw.hhad, had: hadOdds, line: line };
     const sides = sidesOf(locked.pick);
@@ -449,9 +446,8 @@
         lock: env !== "掺局区",
       };
     }
-    const prof = (global.CC_FORM && CC_FORM.leagueProfile) ? CC_FORM.leagueProfile(league) : {};
-    if (eu === "draw" || (prof.draw === "high" && eu === "home")) {
-      return { pick: "主/平", dual: true, paperOppose: false, tag: eu === "draw" ? "偏平" : "平多联赛", light: "yellow", lock: true };
+    if (eu === "draw") {
+      return { pick: "主/平", dual: true, paperOppose: false, tag: "偏平", light: "yellow", lock: true };
     }
     const side = eu === "away" ? o.a : o.h;
     if (side < (w.singleMin || 1.85)) {
@@ -514,7 +510,7 @@
     while (list.filter((m) => m.dual).length > limit && extras.length) {
       const m = extras.pop();
       if (m.env === "掺局区" || m.env === "中可信") continue;
-      if (/低赔不单|对开|偏平|稳妥带平|中可信双|平多联赛|交手多平/.test(m.tag || "")) continue;
+      if (/低赔不单|对开|偏平|稳妥带平|中可信双|平多联赛|交手多平|平赔贴热/.test(m.tag || "")) continue;
       if ((keep[m.tag] != null ? keep[m.tag] : 9) <= 2) break;
       m.dual = false;
       collapsePick(m);
@@ -840,6 +836,15 @@
     return /让/.test(String(m.pick || "")) ? asHandicap(raw) : raw;
   }
 
+  function drawOddsClose(m) {
+    const nums = String((m && m.sp) || "").match(/(\d+\.\d+)/g);
+    if (!nums || nums.length < 3) return false;
+    const h = +nums[0];
+    const d = +nums[1];
+    const a = +nums[2];
+    return d <= Math.min(h, a) * 1.18;
+  }
+
   function applyLeagueAndH2h(m) {
     const prof = profOf(m);
     const h2h = h2hOf(m);
@@ -847,15 +852,16 @@
     m.h2h = h2h;
     const pick = String(m.pick || "");
     const single = !m.dual && !/\//.test(pick);
-    const addDraw = single && m.lock !== false && m.light !== "red"
-      && (prof.draw === "high" || (h2h.n >= 3 && h2h.drawish));
+    const byH2h = h2h.n >= 3 && h2h.drawish;
+    const byMonth = drawOddsClose(m) && prof.month && prof.month.n >= 8 && prof.month.draw >= 0.28;
+    const addDraw = single && m.lock !== false && m.light !== "red" && (byH2h || byMonth);
     if (addDraw) {
       const away = /客|让负/.test(pick) && !/主|让胜/.test(pick);
       m.pick = away ? (/让/.test(pick) ? "让平/让负" : "平/客") : (/让/.test(pick) ? "让胜/让平" : "主/平");
       m.dual = true;
       m.light = "yellow";
-      m.tag = h2h.drawish ? "交手多平" : "平多联赛";
-      m.steady = (h2h.n ? h2h.text : prof.note) + " 单边不够，带平。";
+      m.tag = byH2h ? "交手多平" : "平赔贴热";
+      m.steady = (h2h.n ? h2h.text : prof.note) + " 这场数据撑得起带平，不是联赛名默认。";
     } else {
       m.steady = [m.steady, prof.note, h2h.n ? h2h.text : ""].filter(Boolean).join(" ");
     }
@@ -933,7 +939,7 @@
     if (will && will.gap === "都轻") return "路过";
     if (m.env === "掺局区" || m.env === "中可信" || m.tag === "名额满才单") return "少买";
     if (m.tag === "战意改向" || m.tag === "战意定边" || m.tag === "跟一边") return m.dual ? "买两边" : "买一边";
-    if (m.tag === "低赔不单" || m.tag === "胶着" || m.tag === "偏平" || m.tag === "平多联赛" || m.tag === "交手多平" || m.tag === "对开") return "买两边";
+    if (m.tag === "低赔不单" || m.tag === "胶着" || m.tag === "偏平" || m.tag === "平多联赛" || m.tag === "交手多平" || m.tag === "平赔贴热" || m.tag === "对开") return "买两边";
     if (m.dual) return "买两边";
     if (m.light === "green") return "买一边";
     return "路过";
@@ -1014,23 +1020,112 @@
     if (jc && jc.matches) jc.buy = buyLines(jc.matches.filter((m) => m.source === "live" && !m.result));
   }
 
+  function spOf(m) {
+    const nums = String((m && m.sp) || "").match(/(\d+\.\d+)/g);
+    if (nums && nums.length >= 3) return { h: +nums[0], d: +nums[1], a: +nums[2] };
+    const had = m && m._mk && m._mk.had;
+    if (had && n(had.h) && n(had.d) && n(had.a)) return { h: n(had.h), d: n(had.d), a: n(had.a) };
+    return null;
+  }
+
+  function priorOdds(league) {
+    const list = ((global.CC_REVIEW_CACHE || {}).leagues) || [];
+    const g = String(league || "");
+    const hit = list.find((x) => x.league === g) || list.find((x) => x.league && g.indexOf(x.league) >= 0);
+    if (!hit || hit.home == null) return { h: 2.40, d: 3.30, a: 2.50 };
+    const h = Math.max(0.08, (hit.home || 0) / 100);
+    const d = Math.max(0.08, (hit.draw || 0) / 100);
+    const a = Math.max(0.08, (hit.away || 0) / 100);
+    const s = h + d + a;
+    return {
+      h: +(0.92 / (h / s)).toFixed(2),
+      d: +(0.92 / (d / s)).toFixed(2),
+      a: +(0.92 / (a / s)).toFixed(2),
+    };
+  }
+
+  function backfillMarkets(m) {
+    if (!m) return;
+    if ((m.ttgPicks || []).length >= 2 && (m.ftScores || []).length >= 2 && (m.hafuPicks || []).length) return;
+    const o = spOf(m) || priorOdds(m.league);
+    const line = (m._mk && m._mk.line != null) ? m._mk.line : (n(m.handicap) || 0);
+    fillMarkets(m, m._mk || {}, o, line, true);
+  }
+
+  function histLock(row) {
+    const o = spOf(row) || priorOdds(row.league);
+    const env = envOf(row.league);
+    const locked = decide(hottest(o), env, o, row.league);
+    stamp(locked, {
+      league: row.league,
+      home: row.home,
+      away: row.away,
+      date: row.date,
+      kickoff: row.kickoff || "",
+      code: row.code || "",
+      slot: row.slot || "",
+      score: row.score,
+      result: row.result,
+    }, fmtSp(o), env);
+    locked.source = "hist";
+    locked.score = row.score || locked.score || "";
+    locked.result = row.result || locked.result || "";
+    if (!locked.slot) locked.slot = String(row.date || "").slice(5).replace("-", "") + (row.code || "");
+    fillMarkets(locked, {}, o, 0, true);
+    locked.action = actionOf(locked);
+    locked.factors = blankFactors(locked.sp, locked.handicap);
+    locked.summary = (locked.summary || "") + " 回放锁：近一个月样本作先验，不看这场赛果。";
+    locked.tag = locked.tag || "回放锁";
+    return locked;
+  }
+
+  function alreadyHave(list, row) {
+    return (list || []).some((x) => {
+      if (!x || x.date !== row.date) return false;
+      if (sameTeam(x.home, row.home) && sameTeam(x.away, row.away)) return true;
+      if (x.score && row.score && x.score === row.score && (sameTeam(x.home, row.home) || sameTeam(x.away, row.away))) return true;
+      return false;
+    });
+  }
+
+  function hydrateHistory() {
+    if (!global.CC_DATA || !CC_DATA.jczq) return [];
+    const cut = (global.CC_BOARD && CC_BOARD.cutIso && CC_BOARD.cutIso()) || "";
+    const today = todayIso();
+    const cur = (CC_DATA.jczq.matches || []).filter((m) => m && m.source !== "hist");
+    const extra = [];
+    ((((global.CC_REVIEW_CACHE || {}).matches) || [])).forEach((row) => {
+      if (!row || !row.date || (cut && row.date < cut) || row.date > today) return;
+      if (alreadyHave(cur, row) || alreadyHave(extra, row)) return;
+      extra.push(histLock(row));
+    });
+    cur.forEach(backfillMarkets);
+    CC_DATA.jczq.matches = cur.concat(extra);
+    if (global.CC_RESULT && CC_RESULT.attachList) CC_RESULT.attachList(CC_DATA.jczq.matches);
+    return CC_DATA.jczq.matches;
+  }
+
   function finish() {
     if (global.CC_EXTRAS) global.CC_EXTRAS.attach();
     else if (global.CC_ENGINE) global.CC_ENGINE.attachAll();
     if (global.CC_NEWS) CC_NEWS.attachAll();
     if (global.CC_FORM) CC_FORM.attachAll();
-    if (global.CC_ENGINE) CC_ENGINE.attachAll();
+    if (global.CC_ENGINE) global.CC_ENGINE.attachAll();
     if (global.CC_DATA.beidan) global.CC_DATA.beidan.matches = [];
     applySteadyAll();
     capDual((((global.CC_DATA || {}).jczq || {}).matches || []).filter((m) => m.source === "live" && !m.result));
+    ((((global.CC_DATA || {}).jczq || {}).matches) || []).forEach((m) => {
+      if (m && m.source !== "hist") backfillMarkets(m);
+    });
     ["jczq", "beidan", "r14", "r9"].forEach((key) => {
       realign(((global.CC_DATA || {})[key] || {}).matches);
     });
     explainAll();
     refreshBuy();
     if (global.CC_REVIEW && CC_REVIEW.ingest) {
-      CC_REVIEW.ingest((((global.CC_DATA || {}).jczq || {}).matches) || []);
+      CC_REVIEW.ingest(((((global.CC_DATA || {}).jczq || {}).matches) || []).filter((m) => m.source !== "hist"));
     }
+    hydrateHistory();
     if (global.CC_RESULT && CC_RESULT.attachList) {
       ["jczq", "beidan", "r14", "r9"].forEach((key) => {
         CC_RESULT.attachList(((global.CC_DATA || {})[key] || {}).matches);
@@ -1049,5 +1144,5 @@
     return pickScores(sides, ctx, mk.crs, ttgNums(pickTtg(mk.ttg, ctx, sides)));
   }
 
-  global.CC_PRED = { lockOne, apply, applyBeidan, applySfc, capDual, finish, explainAll, scoresOf };
+  global.CC_PRED = { lockOne, apply, applyBeidan, applySfc, capDual, finish, explainAll, scoresOf, hydrateHistory, backfillMarkets };
 })(window);
