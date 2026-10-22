@@ -1,0 +1,171 @@
+:root {
+  --void: #06040c;
+  --card: rgba(16, 12, 28, 0.88);
+  --line: rgba(255, 214, 120, 0.18);
+  --gold: #ffc857;
+  --cyan: #3ce0d0;
+  --pink: #ff5d8f;
+  --text: #f4eede;
+  --muted: #9aa0b8;
+  --heat: #ff7a3d;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; min-height: 100%; min-height: 100dvh;
+  background:
+    radial-gradient(1200px 500px at 50% -10%, rgba(255, 120, 60, 0.22), transparent 55%),
+    radial-gradient(800px 400px at 100% 0%, rgba(60, 224, 208, 0.12), transparent 40%),
+    var(--void);
+  color: var(--text);
+  font-family: "Noto Sans SC", "IBM Plex Sans", system-ui, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+body { padding-bottom: 88px; }
+.shop-wm {
+  pointer-events: none; position: fixed; inset: 0; z-index: 0; overflow: hidden;
+  opacity: 0.045; color: #fff; font-size: 28px; font-weight: 800; letter-spacing: 8px;
+  transform: rotate(-18deg) scale(1.2);
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 48px 24px;
+}
+.shop-shell { position: relative; z-index: 1; max-width: 920px; margin: 0 auto; padding: 12px 12px 0; }
+.shop-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; border-radius: 22px;
+  background: linear-gradient(135deg, #ff7a3d 0%, #c43a22 42%, #7b1d4a 100%);
+  box-shadow: 0 18px 40px rgba(196, 58, 34, 0.35), inset 0 1px 0 rgba(255,255,255,0.25);
+}
+.shop-logo {
+  width: 48px; height: 48px; border-radius: 50%;
+  display: grid; place-items: center; font-weight: 900; color: #2a1008;
+  background: radial-gradient(circle at 30% 30%, #fff6, #ffd27a 40%, #ff9a4a);
+  border: 2px solid #fff; flex-shrink: 0;
+}
+.shop-head h1 { margin: 0; font-size: 22px; letter-spacing: 1px; }
+.shop-head p { margin: 2px 0 0; font-size: 12px; opacity: 0.88; }
+.shop-head-actions { margin-left: auto; display: flex; gap: 8px; }
+.shop-ico {
+  width: 36px; height: 36px; border: 0; border-radius: 50%;
+  background: rgba(255,255,255,0.16); color: #fff; font-size: 16px;
+}
+.shop-rail {
+  display: flex; gap: 8px; overflow-x: auto; padding: 12px 4px 8px;
+  scrollbar-width: none;
+}
+.shop-rail::-webkit-scrollbar { display: none; }
+.shop-day {
+  flex: 0 0 auto; border: 0; border-radius: 14px; padding: 8px 12px;
+  background: rgba(255,255,255,0.06); color: var(--muted); text-align: center; min-width: 72px;
+}
+.shop-day b { display: block; font-size: 13px; color: var(--text); }
+.shop-day span { font-size: 11px; }
+.shop-day.on {
+  background: linear-gradient(180deg, #ff9a4a, #e85d2a);
+  color: #2a1008; box-shadow: 0 0 18px rgba(255, 122, 61, 0.45);
+}
+.shop-day.on b, .shop-day.on span { color: #2a1008; }
+.shop-card {
+  position: relative; margin: 0 0 12px;
+  background: linear-gradient(180deg, rgba(28,18,32,0.96), rgba(12,10,18,0.96));
+  border: 1px solid var(--line); border-radius: 18px; padding: 14px 14px 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.28);
+}
+.shop-card-top {
+  display: grid; grid-template-columns: auto 1fr auto auto; gap: 8px;
+  align-items: center; font-size: 12px; color: var(--muted);
+}
+.shop-slot {
+  background: rgba(255,200,87,0.12); color: var(--gold);
+  border-radius: 8px; padding: 3px 8px; font-weight: 700;
+}
+.shop-vs {
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  gap: 8px; margin: 14px 0 12px; text-align: center;
+}
+.shop-team { display: flex; flex-direction: column; align-items: center; gap: 6px; font-weight: 700; }
+.shop-crest {
+  width: 44px; height: 44px; border-radius: 50%; object-fit: cover;
+  background: #1a1424; border: 2px solid rgba(255,255,255,0.12);
+}
+.shop-crest.fallback {
+  display: grid; place-items: center; color: var(--gold); font-size: 16px;
+}
+.shop-vs b { color: #ff8a5c; font-style: italic; letter-spacing: 2px; font-size: 18px; }
+.shop-pills { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.shop-pill {
+  border: 0; border-radius: 999px; padding: 8px 16px; min-height: 36px;
+  background: linear-gradient(180deg, #ff8a3d, #c43a22);
+  color: #fff; font-weight: 700; font-size: 13px;
+  box-shadow: 0 6px 16px rgba(196, 58, 34, 0.35);
+}
+.shop-pill.live { background: linear-gradient(180deg, var(--cyan), #1a8f86); color: #041614; }
+.shop-fx {
+  border: 0; background: transparent; color: var(--gold); font-size: 12px; font-weight: 700;
+}
+.shop-tabbar {
+  position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%);
+  width: min(920px, calc(100% - 16px)); z-index: 8;
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  background: linear-gradient(180deg, #2a140e, #1a0c0a);
+  border: 1px solid rgba(255, 200, 87, 0.25); border-radius: 18px;
+  padding: 6px; box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+}
+.shop-tabbar button {
+  border: 0; background: transparent; color: var(--muted);
+  padding: 10px 4px; border-radius: 12px; font-size: 12px;
+}
+.shop-tabbar button.on {
+  background: linear-gradient(180deg, #ff9a4a, #e85d2a); color: #2a1008; font-weight: 800;
+}
+.shop-info {
+  position: fixed; inset: 0; z-index: 12; overflow: auto;
+  background: var(--void); padding: 0 0 24px;
+}
+.shop-info-bar {
+  position: sticky; top: 0; z-index: 2;
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px calc(10px + env(safe-area-inset-top));
+  background: linear-gradient(135deg, #ff7a3d, #c43a22);
+}
+.shop-info-bar button { border: 0; background: transparent; color: #fff; font-size: 18px; }
+.shop-info-bar h2 { margin: 0; font-size: 16px; flex: 1; text-align: center; }
+.shop-slots { display: flex; gap: 6px; overflow-x: auto; padding: 10px 12px; }
+.shop-slots button {
+  flex: 0 0 auto; border: 0; border-radius: 999px; padding: 6px 12px;
+  background: rgba(255,255,255,0.08); color: var(--muted);
+}
+.shop-slots button.on { background: var(--gold); color: #2a1008; font-weight: 800; }
+.shop-banner {
+  margin: 0 12px; border-radius: 16px;
+  background: linear-gradient(135deg, #ff7a3d, #9b1d3a);
+  padding: 16px 12px; text-align: center;
+}
+.shop-subtabs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 12px; }
+.shop-subtabs button {
+  border: 0; border-radius: 999px; padding: 10px; background: rgba(255,255,255,0.08); color: var(--muted);
+}
+.shop-subtabs button.on { background: linear-gradient(180deg, #ff9a4a, #e85d2a); color: #2a1008; font-weight: 800; }
+.shop-block {
+  margin: 0 12px 12px; padding: 14px; border-radius: 16px;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--line);
+}
+.shop-block h3 {
+  margin: 0 0 10px; font-size: 14px; color: var(--gold);
+  background: rgba(255,200,87,0.08); display: inline-block; padding: 4px 10px; border-radius: 999px;
+}
+.shop-block p, .shop-block li { color: #d9d3c8; font-size: 13px; line-height: 1.7; }
+.shop-sg { margin: 0 0 12px; padding: 12px; border-radius: 16px; background: rgba(255,255,255,0.04); border: 1px solid var(--line); }
+.shop-sg-hd { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
+.shop-sg-teams { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; font-weight: 700; }
+.shop-sg-score { color: var(--gold); font-size: 22px; }
+.shop-bars { display: grid; gap: 8px; }
+.shop-bar { display: grid; grid-template-columns: 36px 1fr 48px; gap: 8px; align-items: center; font-size: 12px; }
+.shop-bar i { display: block; height: 8px; border-radius: 99px; background: linear-gradient(90deg, #ff7a3d, var(--gold)); }
+.shop-hot { color: var(--heat); font-weight: 800; }
+.shop-slip { margin: 12px; padding: 12px; border-radius: 16px; background: rgba(255,200,87,0.08); }
+.shop-note { text-align: center; color: var(--muted); font-size: 11px; padding: 16px; }
+.intel-lock { padding: 16px; }
+.intel-lock input { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: #120e18; color: var(--text); }
+.site-foot { display: none; }
+@media (min-width: 900px) {
+  .shop-shell { padding-top: 20px; }
+}

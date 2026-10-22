@@ -96,6 +96,7 @@
   }
 
   function topStats() {
+    if (!$("topStats") || $("topStats").hidden) return;
     const live = (CC_DATA.jczq.matches || []).filter((m) => m.source === "live" && !m.result);
     const hist = (CC_DATA.jczq.matches || []).filter((m) => m.source !== "live" || m.result);
     const j = dualStats(live);
@@ -794,6 +795,10 @@
   }
 
   function render() {
+    if (window.CC_SHOP) {
+      CC_SHOP.render();
+      return;
+    }
     if (state.view === "beidan") state.view = "jczq";
     if (state.view === "review") return renderReview();
     if (state.view === "rules") return renderRules();
@@ -817,6 +822,7 @@
   }
 
   document.querySelectorAll(".tab").forEach((btn) => {
+    if (!btn.dataset || !btn.dataset.view) return;
     btn.onclick = () => {
       document.querySelectorAll(".tab").forEach((b) => b.classList.remove("on"));
       btn.classList.add("on");
@@ -831,7 +837,7 @@
     };
   });
 
-  $("btnCopy").onclick = async () => {
+  if ($("btnCopy")) $("btnCopy").onclick = async () => {
     const text = lockText();
     try {
       await navigator.clipboard.writeText(text);
@@ -848,11 +854,11 @@
     modal.hidden = !open;
     modal.setAttribute("aria-hidden", open ? "false" : "true");
   }
-  $("btnAdd").onclick = () => { setModal(true); };
-  $("btnCloseModal").onclick = () => { setModal(false); };
-  modal.addEventListener("click", (e) => { if (e.target === modal) setModal(false); });
+  if ($("btnAdd")) $("btnAdd").onclick = () => { setModal(true); };
+  if ($("btnCloseModal")) $("btnCloseModal").onclick = () => { setModal(false); };
+  if (modal) modal.addEventListener("click", (e) => { if (e.target === modal) setModal(false); });
 
-  form.onsubmit = (e) => {
+  if (form && form.querySelector("[name=code]")) form.onsubmit = (e) => {
     e.preventDefault();
     const fd = new FormData(form);
     const light = fd.get("light") || "yellow";
@@ -979,6 +985,7 @@
         if (r9Tab) r9Tab.textContent = "任 9 · " + (sfc.draw || CC_DATA.r9.draw || "");
         if (r14Tab) r14Tab.textContent = "任 14 · " + (sfc.draw || CC_DATA.r14.draw || "");
         jumpDateForView();
+        if (window.CC_SHOP && CC_SHOP.jumpLive) CC_SHOP.jumpLive();
         topStats();
         render();
         if (hint) {
@@ -1037,6 +1044,7 @@
   }
   topStats();
   jumpDateForView();
+  if (window.CC_SHOP && CC_SHOP.jumpLive) CC_SHOP.jumpLive();
   render();
   refreshData();
 })();
