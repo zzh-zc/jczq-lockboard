@@ -427,8 +427,13 @@
 
   function attach() {
     if (!global.CC_DATA._pastMerged) {
-      PAST_JC.forEach((m) => { if (!m.source) m.source = "board"; });
-      global.CC_DATA.jczq.matches = PAST_JC.concat(global.CC_DATA.jczq.matches);
+      const have = new Set((global.CC_DATA.jczq.matches || []).map((m) => m.slot || (m.home + m.away)));
+      PAST_JC.forEach((m) => {
+        if (!m.source) m.source = "board";
+        if (!m.slot && m.code) m.slot = "周二" + String(m.code).replace(/\D/g, "").padStart(3, "0");
+      });
+      const extra = PAST_JC.filter((m) => !have.has(m.slot) && !have.has(m.home + m.away));
+      global.CC_DATA.jczq.matches = extra.concat(global.CC_DATA.jczq.matches);
       global.CC_DATA._pastMerged = true;
     }
     const slateDate = { jczq: "2026-10-21", beidan: "2026-10-21", r14: "2026-10-21", r9: "2026-10-21" };
@@ -441,9 +446,18 @@
         delete m.agents;
         delete m.tally;
         delete m.iw;
-        if (global.CC_ODDS) global.CC_ODDS.enrichMatch(m, slateDate[key]);
+        if (global.CC_ODDS) {
+          if (!m.slot && m.code && key === "jczq") {
+            const hint = CC_ODDS.weekdayOf(m.date) || CC_ODDS.weekdayOf(slateDate[key]);
+            CC_ODDS.stampIssue(m, hint);
+          } else {
+            CC_ODDS.stampIssue(m);
+          }
+          CC_ODDS.enrichMatch(m, slateDate[key]);
+          CC_ODDS.stampIssue(m);
+        }
         if (global.CC_ENGINE) m.engine = global.CC_ENGINE.read(m);
-        m.id = `${m.date}-${m.code}`;
+        m.id = m.slot || `${m.issueDate || m.date}-${m.code}`;
       });
     });
   }

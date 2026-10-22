@@ -21,13 +21,17 @@
   }
 
   function keyOf(m) {
-    return (m && (m.slot || [(m.date || ""), (m.home || ""), (m.away || "")].join("|"))) || "";
+    if (!m) return "";
+    const iss = m.issueDate || ((global.CC_ODDS && CC_ODDS.issueDateOf) ? CC_ODDS.issueDateOf(m) : "") || m.date || "";
+    if (m.slot) return iss + "|" + m.slot;
+    return [iss, m.home || "", m.away || ""].join("|");
   }
 
   function slim(m) {
     return {
       id: m.id, slot: m.slot, code: m.code, date: m.date, home: m.home, away: m.away,
       league: m.league, kickoff: m.kickoff, sp: m.sp, pick: m.pick, dual: m.dual,
+      issueDate: m.issueDate, issueWd: m.issueWd, businessDate: m.businessDate,
       lock: m.lock, tag: m.tag, action: m.action, result: m.result, score: m.score,
       liveScore: m.liveScore, liveState: m.liveState, liveMinute: m.liveMinute,
       handicap: m.handicap, source: m.source || "board", light: m.light, env: m.env,
@@ -42,14 +46,14 @@
     try {
       const pack = JSON.parse(localStorage.getItem(STORE) || "null");
       const list = pack && Array.isArray(pack.matches) ? pack.matches : [];
-      return list.filter((m) => m && inWindow(m.date));
+      return list.filter((m) => m && inWindow(m.issueDate || m.date));
     } catch {
       return [];
     }
   }
 
   function save(list) {
-    const keep = (list || []).filter((m) => m && inWindow(m.date)).map(slim);
+    const keep = (list || []).filter((m) => m && inWindow(m.issueDate || m.date)).map(slim);
     try {
       localStorage.setItem(STORE, JSON.stringify({ at: Date.now(), cut: cutIso(), matches: keep }));
     } catch (err) {
@@ -61,7 +65,7 @@
   }
 
   function pruneList(list) {
-    return (list || []).filter((m) => m && inWindow(m.date));
+    return (list || []).filter((m) => m && inWindow(m.issueDate || m.date));
   }
 
   function mergeInto(cur, saved) {
@@ -69,7 +73,7 @@
     pruneList(cur).forEach((m) => map.set(keyOf(m), m));
     saved.forEach((m) => {
       const k = keyOf(m);
-      if (!k || !inWindow(m.date)) return;
+      if (!k || !inWindow(m.issueDate || m.date)) return;
       const hit = map.get(k);
       if (!hit) {
         if (!m.source) m.source = "board";
@@ -92,7 +96,7 @@
         hit._mk = m._mk || hit._mk;
       }
     });
-    return [...map.values()].sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.slot || "").localeCompare(String(b.slot || "")));
+    return [...map.values()].sort((a, b) => String(a.issueDate || a.date).localeCompare(String(b.issueDate || b.date)) || String(a.slot || "").localeCompare(String(b.slot || "")));
   }
 
   function load() {
@@ -105,13 +109,12 @@
 
   function pruneAndSave() {
     if (!global.CC_DATA || !CC_DATA.jczq) return [];
-    const list = pruneList(CC_DATA.jczq.matches || []);
-    const hist = list.filter((m) => m.source === "hist");
-    const real = list.filter((m) => m.source !== "hist");
-    save(real);
-    CC_DATA.jczq.matches = real.concat(hist);
-    if (global.CC_PRED && CC_PRED.hydrateHistory) CC_PRED.hydrateHistory();
-    return real;
+    const list = pruneList((CC_DATA.jczq.matches || []).filter((m) => m.source !== "hist" && m.source !== "sfc-history"));
+    list.forEach((m) => {
+      if (global.CC_ODDS && CC_ODDS.stampIssue) CC_ODDS.stampIssue(m);
+    });
+    CC_DATA.jczq.matches = list;
+    return save(list);
   }
 
   global.CC_BOARD = { DAYS, today, cutIso, inWindow, keyOf, load, pruneAndSave, pruneList, save };

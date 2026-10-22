@@ -22,12 +22,13 @@
   }
 
   function mapJc(m) {
-    return {
+    const row = {
       code: codeOf(m),
       league: m.leagueAbbName || m.leagueAllName || "",
       home: m.homeTeamAbbName || m.homeTeamAllName || "",
       away: m.awayTeamAbbName || m.awayTeamAllName || "",
       date: m.matchDate || m.businessDate || "",
+      businessDate: m.businessDate || "",
       kickoff: kickOf(m),
       slot: String(m.matchNumStr || "").replace(/\s/g, ""),
       status: m.matchStatus || "",
@@ -38,6 +39,7 @@
       crs: m.crs || {},
       matchId: m.matchId,
     };
+    return global.CC_ODDS && CC_ODDS.stampIssue ? CC_ODDS.stampIssue(row) : row;
   }
 
   async function loadText(url, extra) {

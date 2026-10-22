@@ -39,6 +39,56 @@
     return `${y}-${m}-${day}`;
   }
 
+  const WEEKDAYS = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+  const WD_IDX = { 周日: 0, 周一: 1, 周二: 2, 周三: 3, 周四: 4, 周五: 5, 周六: 6 };
+
+  function fmtIso(d) {
+    const p = (x) => String(x).padStart(2, "0");
+    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+  }
+
+  function weekdayOf(iso) {
+    const d = new Date(String(iso || "") + "T12:00:00");
+    if (!Number.isFinite(d.getTime())) return "";
+    return WEEKDAYS[d.getDay()] || "";
+  }
+
+  function issueWd(m) {
+    const s = String((m && (m.slot || m.matchNumStr || "")) || "");
+    const hit = s.match(/周[一二三四五六日]/);
+    if (hit) return hit[0];
+    if (m && m.issueWd) return m.issueWd;
+    return weekdayOf((m && (m.businessDate || m.issueDate || m.date)) || "");
+  }
+
+  function issueDateOf(m) {
+    if (!m) return "";
+    const wd = issueWd(m);
+    if (m.businessDate && (!wd || weekdayOf(m.businessDate) === wd)) return m.businessDate;
+    if (m.issueDate && (!wd || weekdayOf(m.issueDate) === wd)) return m.issueDate;
+    const iso = m.date || m.businessDate || "";
+    if (!wd || !iso) return iso;
+    const kick = String(m.kickoff || "12:00");
+    const d = new Date(iso + "T" + kick + ":00");
+    if (!Number.isFinite(d.getTime())) return iso;
+    const target = WD_IDX[wd];
+    for (let i = 0; i < 8; i += 1) {
+      const t = new Date(d.getTime() - i * 86400000);
+      if (t.getDay() === target) return fmtIso(t);
+    }
+    return iso;
+  }
+
+  function stampIssue(m, hintWd) {
+    if (!m) return m;
+    if (!m.slot && (hintWd || issueWd(m)) && m.code) {
+      m.slot = String(hintWd || issueWd(m)) + String(m.code).replace(/\D/g, "").padStart(3, "0").slice(-3);
+    }
+    m.issueWd = issueWd(m) || hintWd || weekdayOf(m.date);
+    m.issueDate = issueDateOf(m);
+    return m;
+  }
+
   function matchDate(m, slateDate) {
     if (m.date) return m.date;
     const k = m.kickoff || "";
@@ -164,5 +214,5 @@
     `;
   }
 
-  global.CC_ODDS = { BOOKS, parseSp, addDays, todayIso, matchDate, enrichMatch, drawChart };
+  global.CC_ODDS = { BOOKS, parseSp, addDays, todayIso, matchDate, enrichMatch, drawChart, weekdayOf, issueWd, issueDateOf, stampIssue };
 })(window);

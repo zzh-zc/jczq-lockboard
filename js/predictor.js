@@ -401,6 +401,8 @@
     locked.env = env;
     locked.source = "live";
     locked.slot = raw.slot;
+    locked.businessDate = raw.businessDate || raw.issueDate || "";
+    if (global.CC_ODDS && CC_ODDS.stampIssue) CC_ODDS.stampIssue(locked);
     locked.books500 = raw.books500 || null;
     locked.safe = false;
     locked.liveScore = raw.liveScore || "";
@@ -539,11 +541,20 @@
     ];
   }
 
+  function issueKeyOf(m) {
+    const iss = (global.CC_ODDS && CC_ODDS.issueDateOf) ? CC_ODDS.issueDateOf(m) : ((m && (m.issueDate || m.date)) || "");
+    if (m && m.slot) return iss + "|" + m.slot;
+    return [iss, (m && m.home) || "", (m && m.away) || ""].join("|");
+  }
+
   function findOld(raw, olds) {
+    const key = issueKeyOf(raw);
     return (olds || []).find((o) => {
       if (!o) return false;
-      if (o.slot && raw.slot && o.slot === raw.slot && (!o.date || !raw.date || o.date === raw.date)) return true;
-      return sameTeam(o.home, raw.home) && sameTeam(o.away, raw.away) && (!o.date || !raw.date || o.date === raw.date);
+      if (key && issueKeyOf(o) === key) return true;
+      const iss = (global.CC_ODDS && CC_ODDS.issueDateOf) ? CC_ODDS.issueDateOf(raw) : (raw.issueDate || raw.date);
+      const oiss = (global.CC_ODDS && CC_ODDS.issueDateOf) ? CC_ODDS.issueDateOf(o) : (o.issueDate || o.date);
+      return sameTeam(o.home, raw.home) && sameTeam(o.away, raw.away) && (!iss || !oiss || iss === oiss);
     }) || null;
   }
 
@@ -742,11 +753,11 @@
       overlayNotes(m, old);
       return m;
     });
-    const keyOf = (m) => m.slot || [m.date, m.home, m.away].join("|");
+    const keyOf = issueKeyOf;
     const seen = new Set(locked.map(keyOf));
     const keep = old.filter((m) => {
       if (!m || seen.has(keyOf(m))) return false;
-      if (locked.some((n) => sameTeam(n.home, m.home) && sameTeam(n.away, m.away) && (!m.date || !n.date || m.date === n.date))) return false;
+      if (locked.some((n) => sameTeam(n.home, m.home) && sameTeam(n.away, m.away) && issueKeyOf(n).split("|")[0] === issueKeyOf(m).split("|")[0])) return false;
       if (!m.source) m.source = "board";
       return true;
     });
@@ -1028,80 +1039,23 @@
     return null;
   }
 
-  function priorOdds(league) {
-    const list = ((global.CC_REVIEW_CACHE || {}).leagues) || [];
-    const g = String(league || "");
-    const hit = list.find((x) => x.league === g) || list.find((x) => x.league && g.indexOf(x.league) >= 0);
-    if (!hit || hit.home == null) return { h: 2.40, d: 3.30, a: 2.50 };
-    const h = Math.max(0.08, (hit.home || 0) / 100);
-    const d = Math.max(0.08, (hit.draw || 0) / 100);
-    const a = Math.max(0.08, (hit.away || 0) / 100);
-    const s = h + d + a;
-    return {
-      h: +(0.92 / (h / s)).toFixed(2),
-      d: +(0.92 / (d / s)).toFixed(2),
-      a: +(0.92 / (a / s)).toFixed(2),
-    };
-  }
-
   function backfillMarkets(m) {
-    if (!m) return;
+    if (!m || m.source === "hist" || m.source === "sfc-history") return;
     if ((m.ttgPicks || []).length >= 2 && (m.ftScores || []).length >= 2 && (m.hafuPicks || []).length) return;
-    const o = spOf(m) || priorOdds(m.league);
+    const o = spOf(m);
+    if (!o) return;
     const line = (m._mk && m._mk.line != null) ? m._mk.line : (n(m.handicap) || 0);
     fillMarkets(m, m._mk || {}, o, line, true);
-  }
-
-  function histLock(row) {
-    const o = spOf(row) || priorOdds(row.league);
-    const env = envOf(row.league);
-    const locked = decide(hottest(o), env, o, row.league);
-    stamp(locked, {
-      league: row.league,
-      home: row.home,
-      away: row.away,
-      date: row.date,
-      kickoff: row.kickoff || "",
-      code: row.code || "",
-      slot: row.slot || "",
-      score: row.score,
-      result: row.result,
-    }, fmtSp(o), env);
-    locked.source = "hist";
-    locked.score = row.score || locked.score || "";
-    locked.result = row.result || locked.result || "";
-    if (!locked.slot) locked.slot = String(row.date || "").slice(5).replace("-", "") + (row.code || "");
-    fillMarkets(locked, {}, o, 0, true);
-    locked.action = actionOf(locked);
-    locked.factors = blankFactors(locked.sp, locked.handicap);
-    locked.summary = (locked.summary || "") + " 回放锁：近一个月样本作先验，不看这场赛果。";
-    locked.tag = locked.tag || "回放锁";
-    return locked;
-  }
-
-  function alreadyHave(list, row) {
-    return (list || []).some((x) => {
-      if (!x || x.date !== row.date) return false;
-      if (sameTeam(x.home, row.home) && sameTeam(x.away, row.away)) return true;
-      if (x.score && row.score && x.score === row.score && (sameTeam(x.home, row.home) || sameTeam(x.away, row.away))) return true;
-      return false;
-    });
+    if (global.CC_ODDS && CC_ODDS.stampIssue) CC_ODDS.stampIssue(m);
   }
 
   function hydrateHistory() {
     if (!global.CC_DATA || !CC_DATA.jczq) return [];
-    const cut = (global.CC_BOARD && CC_BOARD.cutIso && CC_BOARD.cutIso()) || "";
-    const today = todayIso();
-    const cur = (CC_DATA.jczq.matches || []).filter((m) => m && m.source !== "hist");
-    const extra = [];
-    ((((global.CC_REVIEW_CACHE || {}).matches) || [])).forEach((row) => {
-      if (!row || !row.date || (cut && row.date < cut) || row.date > today) return;
-      if (alreadyHave(cur, row) || alreadyHave(extra, row)) return;
-      extra.push(histLock(row));
+    CC_DATA.jczq.matches = (CC_DATA.jczq.matches || []).filter((m) => m && m.source !== "hist" && m.source !== "sfc-history");
+    (CC_DATA.jczq.matches || []).forEach((m) => {
+      if (global.CC_ODDS && CC_ODDS.stampIssue) CC_ODDS.stampIssue(m);
+      backfillMarkets(m);
     });
-    cur.forEach(backfillMarkets);
-    CC_DATA.jczq.matches = cur.concat(extra);
-    if (global.CC_RESULT && CC_RESULT.attachList) CC_RESULT.attachList(CC_DATA.jczq.matches);
     return CC_DATA.jczq.matches;
   }
 

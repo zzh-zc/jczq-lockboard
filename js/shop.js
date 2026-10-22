@@ -22,34 +22,35 @@
     return (global.CC_BOARD && CC_BOARD.today()) || (global.CC_ODDS && CC_ODDS.todayIso()) || TODAY;
   }
 
+  function issueKey(m) {
+    if (global.CC_ODDS && CC_ODDS.issueDateOf) return CC_ODDS.issueDateOf(m);
+    return (m && (m.issueDate || m.date)) || "";
+  }
+
+  function issueLab(m) {
+    if (global.CC_ODDS && CC_ODDS.issueWd) return CC_ODDS.issueWd(m);
+    const s = String((m && m.slot) || "");
+    const hit = s.match(/周[一二三四五六日]/);
+    return hit ? hit[0] : wd(issueKey(m));
+  }
+
   function all() {
-    const list = ((global.CC_DATA || {}).jczq || {}).matches || [];
-    if (global.CC_BOARD && CC_BOARD.pruneList) return CC_BOARD.pruneList(list);
-    return list;
+    const list = (((global.CC_DATA || {}).jczq || {}).matches || []).filter((m) => m && m.source !== "hist" && m.source !== "sfc-history");
+    const stamped = list.map((m) => (global.CC_ODDS && CC_ODDS.stampIssue ? CC_ODDS.stampIssue(m) : m));
+    if (global.CC_BOARD && CC_BOARD.pruneList) return CC_BOARD.pruneList(stamped);
+    return stamped;
   }
 
   function dayList() {
-    return all().filter((m) => (m.date || "") === state.date);
+    return all()
+      .filter((m) => issueKey(m) === state.date)
+      .sort((a, b) => String(a.slot || a.code || "").localeCompare(String(b.slot || b.code || ""), "zh"));
   }
 
   function dates() {
-    if (state.tab === "sg" && global.CC_REVIEW && CC_REVIEW.dates) {
-      const d = CC_REVIEW.dates();
-      if (d.length) return d.slice(-16);
-    }
-    const t = today();
-    const add = (global.CC_ODDS && CC_ODDS.addDays) ? CC_ODDS.addDays : (iso, n) => {
-      const d = new Date(iso + "T12:00:00");
-      d.setDate(d.getDate() + n);
-      const p = (x) => String(x).padStart(2, "0");
-      return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
-    };
-    const days = [];
-    for (let i = 9; i >= 0; i -= 1) days.push(add(t, -i));
-    all().forEach((m) => {
-      if (m.date && m.date > t && days.indexOf(m.date) < 0) days.push(m.date);
-    });
-    return days.sort();
+    const have = [...new Set(all().map(issueKey).filter(Boolean))].sort();
+    if (have.length) return have;
+    return [today()];
   }
 
   function wd(iso) {
@@ -70,12 +71,13 @@
   }
 
   function dayChip(iso) {
-    const fromBoard = all().filter((m) => m.date === iso);
+    const fromBoard = all().filter((m) => issueKey(m) === iso);
     const fromRev = (state.tab === "sg" && global.CC_REVIEW && CC_REVIEW.dayRows) ? CC_REVIEW.dayRows(iso) : [];
     const list = fromBoard.length ? fromBoard : fromRev;
     const done = list.filter((m) => m.result || m.score);
     const hit = done.filter((m) => hitOf(m) === true && m.pick).length;
-    const lab = iso === today() ? "今日" : wd(iso);
+    const wdLab = (fromBoard[0] && issueLab(fromBoard[0])) || wd(iso);
+    const lab = iso === today() ? "今日" : wdLab;
     if (!list.length) return { top: "--场", bot: lab + " " + md(iso) };
     if (!done.length) return { top: list.length + "场", bot: lab + " " + md(iso) };
     const locked = done.filter((m) => m.pick);
@@ -221,11 +223,10 @@
   }
 
   function renderResults() {
-    const rows = global.CC_RESULT ? CC_RESULT.search("", state.date === TODAY ? "" : state.date) : [];
-    const show = (state.date === TODAY ? rows.slice(0, 40) : rows.filter((r) => r.date === state.date));
+    const rows = global.CC_RESULT ? CC_RESULT.search("", "") : [];
+    const show = rows.filter((r) => issueKey(global.CC_ODDS && CC_ODDS.stampIssue ? CC_ODDS.stampIssue(r) : r) === state.date);
     const ours = dayList().filter((m) => m.score || m.result);
-    const reviewDay = (global.CC_REVIEW && CC_REVIEW.dayRows) ? CC_REVIEW.dayRows(state.date) : [];
-    const list = ours.length ? ours : (reviewDay.length ? reviewDay : show);
+    const list = ours.length ? ours : show;
     const head = global.CC_REVIEW && CC_REVIEW.summaryHtml ? CC_REVIEW.summaryHtml() : "";
     $("shopMain").innerHTML = head + (list.map((m) => {
       const ok = hitOf(m);
@@ -446,9 +447,9 @@
   }
 
   function jumpLive() {
-    if (all().some((m) => m.date === state.date)) return;
+    if (all().some((m) => issueKey(m) === state.date)) return;
     const live = all().filter((m) => m.source === "live" && !m.result);
-    const ds = [...new Set(live.map((m) => m.date).filter(Boolean))].sort();
+    const ds = [...new Set(live.map(issueKey).filter(Boolean))].sort();
     const now = today();
     if (ds.length) state.date = ds.find((d) => d >= now) || ds[0];
     else {
