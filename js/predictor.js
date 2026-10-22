@@ -346,7 +346,7 @@
     } else {
       const side = eu === "away" ? o.a : o.h;
       const can = !red && (aligned || ahSide === "even");
-      out = side < 1.85
+      out = side < 1.8
         ? { pick: eu === "away" ? "平/客" : "主/平", dual: true, paperOppose: false, tag: "低赔不单", light: "yellow", lock: can }
         : { pick: eu === "away" ? "客" : "主", dual: false, paperOppose: false, tag: "跟一边", light: "green", lock: can };
     }
@@ -453,7 +453,7 @@
       green.length ? "跟一边：" + green.join("、") : "这一轮没有清楚的单边",
       mix.length ? "掺局区只少买：" + mix.join("、") : "掺局区没有同向场",
       skip.length ? "红灯/对开/内容拧着：只观察，不进怎么买" : "没有观察场",
-      "战意有边就改方向，锁不败。都重或未定价仍强制带平。不保证八成。",
+      "一场一锁。双选不到一半。折太低的双选路过。",
       "灯是状态，动作才是出不出手。倾向和动作必须一致。",
     ];
   }
@@ -658,23 +658,27 @@
     return "";
   }
 
-  function coverPick(m, eu) {
-    const raw = undefeated(eu);
-    return /让/.test(String(m.pick || "")) ? asHandicap(raw.pick) : raw.pick;
+  function sidePick(m, side, dual) {
+    const one = side === "away" ? "客" : "主";
+    const two = side === "away" ? "平/客" : "主/平";
+    const raw = dual ? two : one;
+    return /让/.test(String(m.pick || "")) ? asHandicap(raw) : raw;
   }
 
   function applyWill(m, eu, d) {
     const side = d.clashWill;
     if (!side || m.light === "red") return false;
     if (eu === side) return false;
-    m.pick = coverPick(m, side);
-    m.dual = true;
-    m.light = "yellow";
+    const fav = favOdds(m, side);
+    const dual = fav != null && fav < 1.8;
+    m.pick = sidePick(m, side, dual);
+    m.dual = dual;
+    m.light = dual ? "yellow" : "green";
     m.lock = true;
     m.paperOppose = eu !== "even";
     m.tag = eu === "even" ? "战意定边" : "战意改向";
     m.steady = eu === "even"
-      ? ("对开，战意偏" + (side === "away" ? "客" : "主") + "，定不败")
+      ? ("对开，战意偏" + (side === "away" ? "客" : "主") + "，跟一边")
       : ("战意偏" + (side === "away" ? "客" : "主") + "，不跟盘口热门");
     if (m._mk) fillMarkets(m, m._mk, m._mk.had, m._mk.line);
     return true;
@@ -701,16 +705,14 @@
       m.steady = clash;
       return;
     }
-    const fav = favOdds(m, eu);
-    const thin = fav != null && fav >= 1.8 && fav < 1.95;
-    const needCover = d.bothHeavy || d.unpriced || d.lateInj || d.busy || thin;
-    if (needCover && !m.dual) {
-      m.pick = coverPick(m, eu);
-      m.dual = true;
-      m.light = "yellow";
-      m.lock = true;
-      m.tag = "稳妥带平";
-      if (m._mk) fillMarkets(m, m._mk, m._mk.had, m._mk.line);
+    if (m.tag === "对开") {
+      m.lock = false;
+      return;
+    }
+    if (m.dual && m.engine && m.engine.cover != null && m.engine.cover < 1.3) {
+      m.lock = false;
+      m.tag = "折太低";
+      m.steady = "买两边折下来不到 1.3，这笔不玩";
     }
   }
 
@@ -725,11 +727,11 @@
     const will = m.will || (global.CC_FORM && CC_FORM.willOf && CC_FORM.willOf(m));
     if (will && !m.will) m.will = will;
     if (m.light === "red" || g === "别碰") return "别碰";
-    if (m.lock === false || m.tag === "内容拧着" || m.tag === "两边降档") return "路过";
+    if (m.lock === false || m.tag === "内容拧着" || m.tag === "两边降档" || m.tag === "折太低") return "路过";
     if (will && will.gap === "都轻") return "路过";
     if (m.env === "掺局区" || m.tag === "名额满才单") return "少买";
-    if (m.tag === "战意改向" || m.tag === "战意定边") return "买两边";
-    if (m.tag === "稳妥带平" || m.tag === "低赔不单" || m.tag === "胶着" || m.tag === "偏平") return "买两边";
+    if (m.tag === "战意改向" || m.tag === "战意定边" || m.tag === "跟一边") return m.dual ? "买两边" : "买一边";
+    if (m.tag === "低赔不单" || m.tag === "胶着" || m.tag === "偏平") return "买两边";
     if (g === "不出手" || g === "路过") return "路过";
     if (m.dual) return "买两边";
     if (m.light === "green") return "买一边";
@@ -790,22 +792,22 @@
     (m.factors || []).forEach((f) => { if (f && f.name) bag[f.name] = f.text; });
     order.forEach((name) => {
       const so = name === "战意"
-        ? (m.tag === "战意改向" || m.tag === "战意定边" ? "战意有边，跟这边不败" : "战意同向或两边一样，不另改号")
+        ? (m.tag === "战意改向" || m.tag === "战意定边" ? "战意有边就改边，能单就单" : "战意同向或两边一样，不另改号")
         : "底稿用来卡出手，不拿近况去博冷";
       why.push({ from: name, fact: bag[name] || "未知", so: so });
     });
-    if (m.tag === "内容拧着" || m.tag === "两边降档" || m.tag === "稳妥带平" || m.tag === "战意改向" || m.tag === "战意定边" || m.steady) {
+    if (m.tag === "内容拧着" || m.tag === "两边降档" || m.tag === "折太低" || m.tag === "战意改向" || m.tag === "战意定边" || m.steady) {
       why.push({
         from: "稳妥闸门",
         fact: m.steady || m.tag,
-        so: m.tag === "战意改向" || m.tag === "战意定边" ? "战意改方向，锁不败" : (m.lock === false ? "内容拧着就路过，不去博冷" : "强制不败，宁缺毋滥"),
+        so: m.tag === "战意改向" || m.tag === "战意定边" ? "战意改边，一场一锁" : (m.lock === false ? "路过，不买两张凑" : "能单就单"),
       });
     }
   }
 
   function actHint(act) {
-    if (act === "买一边") return "灯绿且十一点没拧着，才跟一边";
-    if (act === "买两边") return "不败方向，稳妥带平";
+    if (act === "买一边") return "一场一锁，跟一边";
+    if (act === "买两边") return "只有胶着才买两张，名额不到一半";
     if (act === "少买") return "掺局区少买，不进长串";
     if (act === "别碰") return "别碰热门单边";
     return "倾向写下，这笔先不出";
@@ -831,6 +833,9 @@
     if (global.CC_FORM) CC_FORM.attachAll();
     if (global.CC_ENGINE) CC_ENGINE.attachAll();
     applySteadyAll();
+    ["jczq", "beidan"].forEach((key) => {
+      capDual((((global.CC_DATA || {})[key] || {}).matches) || []);
+    });
     ["jczq", "beidan", "r14", "r9"].forEach((key) => {
       realign(((global.CC_DATA || {})[key] || {}).matches);
     });
