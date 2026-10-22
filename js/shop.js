@@ -285,15 +285,20 @@
             <div class="lab">${esc(m.home)} vs ${esc(m.away)}</div>
             <div class="meta">${esc(m.league || "")}　${esc(m.kickoff || "")}　${esc(m.sp || "")}</div>
           </div>
-          <span class="r9">${n9 ? "任9" : ""}</span>
+          <span class="r9">${esc([n9 ? "任9" : "", m.tag === "双选" || m.tag === "三选" ? m.tag : ""].filter(Boolean).join(" "))}</span>
           <span class="shop-sfc-pick">${esc(to310(m))}</span>
         </div>
       `;
     }).join("");
+    const st = pack.stake || {};
+    const money = st.yuan != null
+      ? st.notes + "注 × 2元 = " + st.yuan + "元　单" + st.singles + " / 双" + st.duals + (st.triples ? " / 三选" + st.triples : "")
+      : (buy[3] || "");
     return `
       <div class="shop-sfc-head">
         <b>${esc(title)}</b>
         <p>${esc(pack.title || "")}　${esc(pack.version || "")}</p>
+        <p class="shop-sfc-money">${esc(money)}</p>
         <p>${esc(buy[1] || "")}</p>
         <p>${esc(buy[2] || "")}</p>
       </div>
@@ -308,7 +313,7 @@
     const r9list = r9.matches || [];
     const r9set = new Set(r9list.map((m) => (m.code || "") + "|" + (m.home || "")));
     $("shopMain").innerHTML = r14list.length || r9list.length
-      ? renderSfcBlock("任14 推荐", r14, r14list, r9set) + renderSfcBlock("任9 推荐", r9, r9list, r9set)
+      ? renderSfcBlock("任14 推荐", r14, r14list, r9set) + renderSfcBlock("任9 推荐", r9, r9list, null)
       : `<p class="shop-note">这一期还没有胜负彩 / 任9。</p>`;
   }
 

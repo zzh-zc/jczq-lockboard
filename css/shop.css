@@ -125,6 +125,7 @@ body { padding-bottom: 88px; }
 .shop-sfc-head { margin: 0 0 10px; padding: 12px; border-radius: 16px; background: rgba(216,255,62,0.08); border: 1px solid var(--line); }
 .shop-sfc-head b { color: var(--lime); font-size: 16px; }
 .shop-sfc-head p { margin: 6px 0 0; color: #d9d5ea; font-size: 13px; line-height: 1.6; }
+.shop-sfc-money { color: var(--lime) !important; font-weight: 700; }
 .shop-sfc-row {
   display: grid; grid-template-columns: 28px 1fr auto auto; gap: 8px; align-items: center;
   margin: 0 0 8px; padding: 10px 12px; border-radius: 14px;

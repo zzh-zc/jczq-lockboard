@@ -558,13 +558,6 @@
     const eu = hottest(o);
     const env = MIX.test(raw.league) ? "掺局区" : "高可信";
     const locked = decide(eu, env, o);
-    if (!locked.dual) {
-      const cover = undefeated(eu);
-      locked.pick = cover.pick;
-      locked.dual = true;
-      locked.tag = "任14带平";
-      locked.light = "yellow";
-    }
     locked.lock = true;
     stamp(locked, raw, fmtSp(o), env);
     locked.action = actionOf(locked);
@@ -577,20 +570,97 @@
     return locked;
   }
 
-  function pickNine(list) {
-    const rank = (m) => (m.light === "green" ? 0 : m.light === "yellow" ? 1 : 2);
-    const real = (m) => /\/ /.test(m.sp || "") && !/^2\.40/.test(m.sp);
-    return list.slice().sort((a, b) => rank(a) - rank(b) || Number(real(b)) - Number(real(a))).slice(0, 9);
+  function sfcOdds(m) {
+    const nums = String((m && m.sp) || "").match(/(\d+\.\d+)/g);
+    if (!nums || nums.length < 3) return { h: 2.4, d: 3.3, a: 2.5 };
+    return { h: +nums[0], d: +nums[1], a: +nums[2] };
+  }
+
+  function dualNeed(m) {
+    const o = sfcOdds(m);
+    const fav = Math.min(o.h, o.d, o.a);
+    const gap = Math.abs(o.h - o.a);
+    let s = 0;
+    if (fav < 1.5) s += 100;
+    if (fav < 1.8) s += 40;
+    if (gap < 0.35) s += 50;
+    if (o.d <= Math.min(o.h, o.a) + 0.35) s += 28;
+    if (m && m.env === "掺局区") s += 12;
+    if (m && m.light === "yellow") s += 8;
+    if (m && m.light === "green" && fav >= 2) s -= 18;
+    return s;
+  }
+
+  function isThreeWay(m) {
+    const o = sfcOdds(m);
+    return Math.abs(o.h - o.a) < 0.45 && o.d <= Math.min(o.h, o.a) + 0.55;
+  }
+
+  function sfcSetCombo(m, combo) {
+    const map = { "3": "主", "1": "平", "0": "客" };
+    m.combo = combo;
+    m.dual = String(combo).length > 1;
+    m.pick = String(combo).split("").map((ch) => map[ch] || ch).join("/");
+    m.tag = combo.length === 1 ? "单出" : (combo.length === 3 ? "三选" : "双选");
+  }
+
+  function defaultDualCombo(m) {
+    const o = sfcOdds(m);
+    const eu = hottest(o);
+    if (eu === "away") return "10";
+    if (eu === "even") return o.h <= o.a ? "31" : "10";
+    return "31";
+  }
+
+  function sfcNotes(list) {
+    return (list || []).reduce((n, m) => n * Math.max(1, String(m.combo || "3").length), 1);
+  }
+
+  function stakeOf(list) {
+    const notes = sfcNotes(list);
+    const duals = (list || []).filter((m) => String(m.combo || "").length === 2).length;
+    const triples = (list || []).filter((m) => String(m.combo || "").length === 3).length;
+    const singles = (list || []).length - duals - triples;
+    return { notes: notes, yuan: notes * 2, duals: duals, triples: triples, singles: singles };
+  }
+
+  function allocateSfc(list, maxYuan) {
+    const maxNotes = Math.max(1, Math.floor(maxYuan / 2));
+    (list || []).forEach((m) => {
+      const main = String(m.combo || toCombo(m.pick) || "3").charAt(0);
+      sfcSetCombo(m, /[310]/.test(main) ? main : "3");
+    });
+    const ranked = list.slice().sort((a, b) => dualNeed(b) - dualNeed(a));
+    ranked.forEach((m) => {
+      if (dualNeed(m) <= 0) return;
+      if (sfcNotes(list) * 2 > maxNotes) return;
+      sfcSetCombo(m, defaultDualCombo(m));
+    });
+    const evenSingle = ranked.find((m) => isThreeWay(m) && String(m.combo).length === 1);
+    const evenDual = ranked.find((m) => isThreeWay(m) && String(m.combo).length === 2);
+    if (evenSingle && sfcNotes(list) * 3 <= maxNotes) sfcSetCombo(evenSingle, "310");
+    else if (evenDual && (sfcNotes(list) / 2) * 3 <= maxNotes) sfcSetCombo(evenDual, "310");
+    return list;
+  }
+
+  function pickNineBudget(list) {
+    const ranked = list.slice().sort((a, b) => dualNeed(b) - dualNeed(a));
+    const glue = ranked.slice(0, 4);
+    const clear = ranked.slice(4).sort((a, b) => dualNeed(a) - dualNeed(b)).slice(0, 5);
+    const keep = {};
+    glue.concat(clear).forEach((m) => { keep[(m.code || "") + "|" + (m.home || "") + "|" + (m.away || "")] = true; });
+    return list.filter((m) => keep[(m.code || "") + "|" + (m.home || "") + "|" + (m.away || "")]).map((m) => Object.assign({}, m));
   }
 
   function sfcBuy(list, pack, kind) {
     const line = list.map((m) => (m.combo || toCombo(m.pick)).charAt(0)).join(" ");
     const dual = list.map((m) => m.combo || toCombo(m.pick)).join(" ");
+    const st = stakeOf(list);
     return [
       `${kind} · ${pack.draw || ""} · 截止 ${pack.end || ""}`,
       "主推：" + line,
       "复式：" + dual,
-      "任14/任9 比竞彩宽，1.3 禁止死胆。套餐跟着胜平负走。",
+      st.notes + "注 × 2元 = " + st.yuan + "元　单" + st.singles + " / 双" + st.duals + (st.triples ? " / 三选" + st.triples : ""),
     ];
   }
 
@@ -645,24 +715,28 @@
 
   function applySfc(pack, jcList) {
     const locked = (pack.matches || []).map((m) => lockSfc(m, jcList)).filter(Boolean);
-    const r14 = locked.map((m) => Object.assign({}, m));
-    const r9 = pickNine(locked).map((m) => Object.assign({}, m));
+    const r14 = allocateSfc(locked.map((m) => Object.assign({}, m)), 400);
+    const r9 = allocateSfc(pickNineBudget(r14), 32);
+    const st14 = stakeOf(r14);
+    const st9 = stakeOf(r9);
     global.CC_DATA.r14.matches = r14;
     global.CC_DATA.r14.title = "胜负彩 / 任 14 · " + (pack.draw || "");
     global.CC_DATA.r14.draw = pack.draw || "";
     global.CC_DATA.r14.version = (pack.live ? "体彩即时 " : "期次缓存 ") + (pack.draw || "");
     global.CC_DATA.r14.date = r14[0] ? r14[0].date : global.CC_DATA.r14.date;
     global.CC_DATA.r14.buy = sfcBuy(r14, pack, "任14");
+    global.CC_DATA.r14.stake = st14;
     global.CC_DATA.r14.dualLimit = 1;
-    global.CC_DATA.r14.env = "14 场全锁。比竞彩宽，禁止死胆。";
+    global.CC_DATA.r14.env = "14 场全锁。预算不超过 400 元，胶着才双选。";
     global.CC_DATA.r9.matches = r9;
     global.CC_DATA.r9.title = "任 9 · " + (pack.draw || "");
     global.CC_DATA.r9.draw = pack.draw || "";
     global.CC_DATA.r9.version = global.CC_DATA.r14.version;
     global.CC_DATA.r9.date = r9[0] ? r9[0].date : global.CC_DATA.r9.date;
     global.CC_DATA.r9.buy = sfcBuy(r9, pack, "任9");
+    global.CC_DATA.r9.stake = st9;
     global.CC_DATA.r9.dualLimit = 1;
-    global.CC_DATA.r9.env = "同一期里挑 9 场相对清楚的。";
+    global.CC_DATA.r9.env = "9 场控制 32 元：4 双 5 单。";
     return { r9, r14 };
   }
 
