@@ -139,6 +139,15 @@
     const eleven = ["战意", "利益关系", "赛事优先级", "实力", "主客", "伤停轮换", "赛程", "阵容特性", "重要程度", "发布会", "SP"];
     const why = (m.why || []).filter((x) => x.from === "结论");
     return `
+      <div class="shop-block"><h3>本场预测</h3>
+        <div class="shop-pills">
+          <span class="shop-pill">${esc(ui.hadText(m))}</span>
+          <span class="shop-pill">${esc(ui.ttgText(m))}</span>
+          <span class="shop-pill">${esc(ui.crsText(m))}</span>
+          <span class="shop-pill">${esc(ui.hafuText ? ui.hafuText(m) : ((m.hafuPicks || []).join("/") || "—"))}</span>
+        </div>
+        <p>倾向 ${esc(ui.hadText(m))}，动作 ${esc(m.action || "")}。${esc(m.steady || m.tag || "")}</p>
+      </div>
       <div class="shop-block"><h3>队伍的实力</h3>
         <p>${esc(sideLine(m.home, hs, "主场"))}</p>
         <p>${esc(sideLine(m.away, as, "客场"))}</p>

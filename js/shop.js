@@ -6,8 +6,6 @@
     selected: null,
     info: false,
     infoTab: "fx",
-    slip: [],
-    stake: 10,
     unlockAsk: null,
     newsCat: "全部",
   };
@@ -150,28 +148,35 @@
     return "";
   }
 
+  function predPills(m) {
+    return `
+      <div class="shop-pills">
+        <span class="shop-pill">${esc(hadText(m))}</span>
+        <span class="shop-pill">${esc(ttgText(m))}</span>
+        <span class="shop-pill">${esc(crsText(m))}</span>
+        <span class="shop-pill">${esc(hafuText(m))}</span>
+        ${liveMark(m)}
+      </div>
+    `;
+  }
+
   function renderCard(m) {
     const lg = logos(m);
+    const id = m.id || slotOf(m);
     return `
-      <article class="shop-card" data-id="${esc(m.id || slotOf(m))}">
+      <article class="shop-card" data-info="${esc(id)}">
         <div class="shop-card-top">
           <span class="shop-slot">${esc(slotOf(m))}</span>
           <span>${esc(m.league || "")}</span>
           <span>${esc(whenOf(m))}</span>
-          <button type="button" class="shop-fx" data-info="${esc(m.id || slotOf(m))}">赛事分析</button>
+          <span class="shop-fx">赛事分析</span>
         </div>
         <div class="shop-vs">
           <div class="shop-team">${crest(lg.home, m.home)}<span>${esc(m.home)}</span></div>
           <b>VS</b>
           <div class="shop-team">${crest(lg.away, m.away)}<span>${esc(m.away)}</span></div>
         </div>
-        <div class="shop-pills">
-          <button type="button" class="shop-pill" data-add="${esc(m.id)}" data-kind="had">${esc(hadText(m))}</button>
-          <button type="button" class="shop-pill" data-add="${esc(m.id)}" data-kind="ttg">${esc(ttgText(m))}</button>
-          <button type="button" class="shop-pill" data-add="${esc(m.id)}" data-kind="crs">${esc(crsText(m))}</button>
-          <button type="button" class="shop-pill" data-add="${esc(m.id)}" data-kind="hafu">${esc(hafuText(m))}</button>
-          ${liveMark(m)}
-        </div>
+        ${predPills(m)}
       </article>
     `;
   }
@@ -226,12 +231,12 @@
       const h = pct(f.h); const d = pct(f.d); const a = pct(f.a);
       const mx = Math.max(h, d, a);
       return `
-        <article class="shop-card">
+        <article class="shop-card" data-info="${esc(m.id || slotOf(m))}">
           <div class="shop-card-top">
             <span class="shop-slot">${esc(slotOf(m))}</span>
             <span>${esc(m.league || "")}</span>
             <span>${esc(whenOf(m))}</span>
-            <button type="button" class="shop-fx" data-info="${esc(m.id || slotOf(m))}">赛事分析</button>
+            <span class="shop-fx">赛事分析</span>
           </div>
           <div class="shop-vs">
             <div class="shop-team"><span>${esc(m.home)}</span></div>
@@ -254,34 +259,57 @@
     }).join("") || `<p class="shop-note">这一天还没有风向。</p>`;
   }
 
-  function oddOf(m, kind) {
-    const o = spParts(m);
-    if (kind === "had") {
-      const p = hadText(m);
-      if (p === "胜") return o.h;
-      if (p === "负") return o.a;
-      if (p === "平") return o.d;
-      if (/胜/.test(p) && /平/.test(p) && o.h && o.d) return +(1 / (1 / o.h + 1 / o.d)).toFixed(2);
-      if (/负/.test(p) && /平/.test(p) && o.a && o.d) return +(1 / (1 / o.a + 1 / o.d)).toFixed(2);
-      if (/胜/.test(p) && /负/.test(p) && o.h && o.a) return +(1 / (1 / o.h + 1 / o.a)).toFixed(2);
-      return o.h || 2;
-    }
-    return 3.2;
+  function to310(m) {
+    if (m.combo) return String(m.combo).split("").join("/");
+    return String(m.pick || "")
+      .replace(/主|胜/g, "3")
+      .replace(/平/g, "1")
+      .replace(/客|负/g, "0");
   }
 
-  function renderCalc() {
-    const combo = state.slip.reduce((s, x) => s * (x.odd || 1), 1);
-    const stake = Number(state.stake) || 10;
-    const ret = combo * stake;
-    $("shopMain").innerHTML = `
-      <div class="shop-slip">
-        <p class="shop-note" style="padding:0 0 8px">点下面的号进过关。赔率用竞彩即时 SP 近似。</p>
-        ${state.slip.length ? state.slip.map((x, i) => `<p>${esc(x.label)}　${x.odd}<button type="button" data-del="${i}">删</button></p>`).join("") : "<p>还没有选号</p>"}
-        <p>本金 <input id="shopStake" type="number" min="1" step="1" value="${stake}" /> 元</p>
-        <p><b>${state.slip.length} 串 1　过关 ${combo.toFixed(2)}　回报约 ${ret.toFixed(2)}</b></p>
+  function sfcTwin(m) {
+    return all().find((x) => x.home === m.home && x.away === m.away)
+      || all().find((x) => (x.home || "").indexOf(m.home) >= 0 || (m.home || "").indexOf(x.home) >= 0);
+  }
+
+  function renderSfcBlock(title, pack, list, r9set) {
+    const buy = pack.buy || [];
+    const rows = list.map((m, i) => {
+      const twin = sfcTwin(m);
+      const id = twin ? (twin.id || slotOf(twin)) : "";
+      const n9 = r9set && r9set.has((m.code || "") + "|" + (m.home || ""));
+      return `
+        <div class="shop-sfc-row"${id ? ` data-info="${esc(id)}"` : ""}>
+          <span class="shop-slot">${esc(m.code || String(i + 1))}</span>
+          <div>
+            <div class="lab">${esc(m.home)} vs ${esc(m.away)}</div>
+            <div class="meta">${esc(m.league || "")}　${esc(m.kickoff || "")}　${esc(m.sp || "")}</div>
+          </div>
+          <span class="r9">${n9 ? "任9" : ""}</span>
+          <span class="shop-sfc-pick">${esc(to310(m))}</span>
+        </div>
+      `;
+    }).join("");
+    return `
+      <div class="shop-sfc-head">
+        <b>${esc(title)}</b>
+        <p>${esc(pack.title || "")}　${esc(pack.version || "")}</p>
+        <p>${esc(buy[1] || "")}</p>
+        <p>${esc(buy[2] || "")}</p>
       </div>
-      ${dayList().map(renderCard).join("")}
+      ${rows || '<p class="shop-note">这一期还没有推荐。</p>'}
     `;
+  }
+
+  function renderSfc() {
+    const r14 = (global.CC_DATA && CC_DATA.r14) || {};
+    const r9 = (global.CC_DATA && CC_DATA.r9) || {};
+    const r14list = r14.matches || [];
+    const r9list = r9.matches || [];
+    const r9set = new Set(r9list.map((m) => (m.code || "") + "|" + (m.home || "")));
+    $("shopMain").innerHTML = r14list.length || r9list.length
+      ? renderSfcBlock("任14 推荐", r14, r14list, r9set) + renderSfcBlock("任9 推荐", r9, r9list, r9set)
+      : `<p class="shop-note">这一期还没有胜负彩 / 任9。</p>`;
   }
 
   function ui() {
@@ -289,9 +317,10 @@
   }
 
   function renderInfo() {
+    const cur = all().find((m) => (m.id || slotOf(m)) === state.selected) || dayList()[0];
+    if (!cur) { state.info = false; renderList(); return; }
+    if (cur.date) state.date = cur.date;
     const list = dayList();
-    if (!list.length) { state.info = false; renderList(); return; }
-    const cur = list.find((m) => (m.id || slotOf(m)) === state.selected) || list[0];
     state.selected = cur.id || slotOf(cur);
     const lg = logos(cur);
     const body = global.CC_SHOP_DETAIL
@@ -308,6 +337,7 @@
           <b>VS</b>
           <div class="shop-team">${crest(lg.away, cur.away)}<span>${esc(cur.away)}[客]</span></div>
         </div>
+        ${predPills(cur)}
       </div>
       <div class="shop-subtabs">
         <button type="button" class="${state.infoTab === "fx" ? "on" : ""}" data-infotab="fx">赛事分析</button>
@@ -317,16 +347,6 @@
       </div>
       ${body}
     `;
-  }
-
-  function addSlip(id, kind) {
-    const m = all().find((x) => (x.id || slotOf(x)) === id);
-    if (!m) return;
-    const label = slotOf(m) + " " + (kind === "had" ? hadText(m) : kind === "ttg" ? ttgText(m) : kind === "hafu" ? hafuText(m) : crsText(m));
-    const odd = oddOf(m, kind);
-    state.slip.push({ label: label, odd: odd });
-    state.tab = "calc";
-    render();
   }
 
   function bind() {
@@ -345,12 +365,6 @@
         render();
       };
     });
-    document.querySelectorAll("[data-add]").forEach((el) => {
-      el.onclick = () => addSlip(el.getAttribute("data-add"), el.getAttribute("data-kind"));
-    });
-    document.querySelectorAll("[data-del]").forEach((el) => {
-      el.onclick = () => { state.slip.splice(+el.getAttribute("data-del"), 1); render(); };
-    });
     const back = $("shopBack");
     if (back) back.onclick = () => { state.info = false; render(); };
     document.querySelectorAll("[data-pick]").forEach((el) => {
@@ -359,8 +373,6 @@
     document.querySelectorAll("[data-infotab]").forEach((el) => {
       el.onclick = () => { state.infoTab = el.getAttribute("data-infotab"); render(); };
     });
-    const stakeBox = $("shopStake");
-    if (stakeBox) stakeBox.onchange = () => { state.stake = +stakeBox.value || 10; render(); };
     document.querySelectorAll("[data-news-cat]").forEach((el) => {
       el.onclick = () => { state.newsCat = el.getAttribute("data-news-cat"); render(); };
     });
@@ -420,7 +432,7 @@
     if (state.info) renderInfo();
     else if (state.tab === "sg") renderResults();
     else if (state.tab === "wind") renderWind();
-    else if (state.tab === "calc") renderCalc();
+    else if (state.tab === "sfc") renderSfc();
     else if (state.tab === "msg") {
       $("shopMain").innerHTML = global.CC_SHOP_DETAIL
         ? CC_SHOP_DETAIL.innerListHtml(dayList(), state, logos)
