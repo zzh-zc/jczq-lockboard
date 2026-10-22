@@ -20,8 +20,14 @@
     }[c]));
   }
 
+  function today() {
+    return (global.CC_BOARD && CC_BOARD.today()) || (global.CC_ODDS && CC_ODDS.todayIso()) || TODAY;
+  }
+
   function all() {
-    return ((global.CC_DATA || {}).jczq || {}).matches || [];
+    const list = ((global.CC_DATA || {}).jczq || {}).matches || [];
+    if (global.CC_BOARD && CC_BOARD.pruneList) return CC_BOARD.pruneList(list);
+    return list;
   }
 
   function dayList() {
@@ -30,7 +36,7 @@
 
   function dates() {
     const have = [...new Set(all().map((m) => m.date).filter(Boolean))].sort();
-    if (!have.length) return [TODAY];
+    if (!have.length) return [today()];
     return have;
   }
 
@@ -54,7 +60,7 @@
     const list = all().filter((m) => m.date === iso);
     const done = list.filter((m) => m.result);
     const hit = done.filter((m) => hitOf(m) === true).length;
-    const lab = iso === TODAY ? "今日" : wd(iso);
+    const lab = iso === today() ? "今日" : wd(iso);
     if (!list.length) return { top: "--场", bot: lab + " " + md(iso) };
     if (!done.length) return { top: list.length + "场", bot: lab + " " + md(iso) };
     return { top: done.length + "中" + hit, bot: lab + " " + md(iso) };
@@ -385,10 +391,12 @@
   }
 
   function jumpLive() {
+    if (all().some((m) => m.date === state.date)) return;
     const live = all().filter((m) => m.source === "live" && !m.result);
     const ds = [...new Set(live.map((m) => m.date).filter(Boolean))].sort();
-    if (ds.length) state.date = ds.find((d) => d >= TODAY) || ds[0];
-    else if (!all().some((m) => m.date === state.date)) {
+    const now = today();
+    if (ds.length) state.date = ds.find((d) => d >= now) || ds[0];
+    else {
       const allD = dates();
       if (allD.length) state.date = allD[allD.length - 1];
     }

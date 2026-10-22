@@ -345,5 +345,5 @@
     return { matches, live: false, updatedAt: cache.updatedAt || "" };
   }
 
-  global.CC_LIVE = { pull, pullSfc, pullBjdc, pullScores, n, shortLeague, matchKey, hadOfScore };
+  global.CC_LIVE = { pull, pullSfc, pullBjdc, pullScores, n, shortLeague, matchKey, hadOfScore, getJson: loadJson, fetchFotmobDay };
 })(window);

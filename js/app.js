@@ -906,9 +906,9 @@
   if (phoneMq.addEventListener) phoneMq.addEventListener("change", render);
   else phoneMq.addListener(render);
 
-  const HOUR_MS = 60 * 60 * 1000;
-  const SCORE_MS = 45 * 1000;
-  const clock = { nextAt: Date.now() + HOUR_MS, busy: false };
+  const PRED_MS = 5 * 60 * 1000;
+  const SCORE_MS = 30 * 1000;
+  const clock = { nextAt: Date.now() + PRED_MS, busy: false };
   const scoreClock = { nextAt: Date.now() + 8000, busy: false };
 
   function pad2(n) {
@@ -960,7 +960,7 @@
     }
   }
 
-  async function refreshData() {
+  async function refreshData(force) {
     if (clock.busy) return;
     const modal = $("modal");
     if (modal && !modal.hidden) {
@@ -968,8 +968,10 @@
       return;
     }
     clock.busy = true;
+    const btn = $("btnRefresh");
+    if (btn) btn.classList.add("spin");
     const hint = $("refreshHint");
-    if (hint) hint.textContent = "正在拉最新锁号…";
+    if (hint) hint.textContent = force ? "正在拉盘口、消息和预测…" : "正在拉最新锁号…";
     try {
       if (window.CC_LIVE && window.CC_PRED) {
         let pack = await CC_LIVE.pull();
@@ -980,18 +982,18 @@
         try { sfc = await CC_LIVE.pullSfc(); } catch (e2) { sfc = { matches: [], live: false, draw: "" }; }
         CC_PRED.applySfc(sfc, locked);
         CC_PRED.finish();
-        const r9Tab = document.querySelector('[data-view="r9"]');
-        const r14Tab = document.querySelector('[data-view="r14"]');
-        if (r9Tab) r9Tab.textContent = "任 9 · " + (sfc.draw || CC_DATA.r9.draw || "");
-        if (r14Tab) r14Tab.textContent = "任 14 · " + (sfc.draw || CC_DATA.r14.draw || "");
-        jumpDateForView();
-        if (window.CC_SHOP && CC_SHOP.jumpLive) CC_SHOP.jumpLive();
+        if (window.CC_BOARD) CC_BOARD.pruneAndSave();
+        if (window.CC_NEWS && CC_NEWS.pullLive) {
+          try { await CC_NEWS.pullLive((CC_DATA.jczq && CC_DATA.jczq.matches) || [], { force: !!force }); } catch (e3) { /* 消息源拦了先用缓存 */ }
+          CC_PRED.finish();
+          if (window.CC_BOARD) CC_BOARD.pruneAndSave();
+        }
         topStats();
         render();
         if (hint) {
-          const booksTag = pack.booksLive ? " · 含500百家" : pack.booksOk ? " · 500百家缓存" : "";
-          const hist = (CC_DATA.jczq.matches || []).filter((m) => m.source !== "live" || m.result).length;
-          hint.textContent = `算法 ${new Date().toTimeString().slice(0, 5)} · 竞彩${locked.length} · 历史${hist}${booksTag}`;
+          const liveN = ((CC_DATA.jczq && CC_DATA.jczq.matches) || []).filter((m) => m.source === "live" && !m.result).length;
+          const hist = ((CC_DATA.jczq && CC_DATA.jczq.matches) || []).filter((m) => m.source !== "live" || m.result).length;
+          hint.textContent = `即时 ${new Date().toTimeString().slice(0, 5)} · 在售${liveN} · 近10天${hist}`;
         }
       } else {
         throw new Error("no live");
@@ -1002,29 +1004,34 @@
         await loadScript("js/odds.js");
         await loadScript("js/extras.js");
         await loadScript("js/engine.js");
+        if (window.CC_BOARD) CC_BOARD.load();
         topStats();
         render();
         if (hint) hint.textContent = `离线底稿 ${new Date().toTimeString().slice(0, 5)}`;
       } catch {
-        if (hint) hint.textContent = "刷新失败，下小时再试";
+        if (hint) hint.textContent = "刷新失败，点右上角再试";
       }
     } finally {
       clock.busy = false;
-      clock.nextAt = Date.now() + HOUR_MS;
+      clock.nextAt = Date.now() + PRED_MS;
+      if (btn) btn.classList.remove("spin");
       tickClock();
     }
   }
 
   $("btnRefresh").onclick = () => {
     clock.nextAt = Date.now();
-    refreshData();
+    refreshData(true);
   };
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden && Date.now() >= clock.nextAt) refreshData();
+    if (!document.hidden && Date.now() >= clock.nextAt - PRED_MS + 120000) refreshData(true);
   });
   setInterval(tickClock, 1000);
   tickClock();
 
+  if (window.CC_FORM && CC_FORM.loadLive) CC_FORM.loadLive();
+  if (window.CC_NEWS && CC_NEWS.loadLive) CC_NEWS.loadLive();
+  if (window.CC_BOARD) CC_BOARD.load();
   if (window.CC_FORM) CC_FORM.attachAll();
   if (window.CC_NEWS) CC_NEWS.boot();
   if (window.CC_ENGINE) CC_ENGINE.attachAll();
@@ -1046,5 +1053,5 @@
   jumpDateForView();
   if (window.CC_SHOP && CC_SHOP.jumpLive) CC_SHOP.jumpLive();
   render();
-  refreshData();
+  refreshData(true);
 })();

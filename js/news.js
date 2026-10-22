@@ -132,8 +132,185 @@
     });
   }
 
+  const INTEL_STORE = "jczq-cc-intel-live-v1";
+  const pulledAt = {};
+
+  function loadLive() {
+    try {
+      const pack = JSON.parse(localStorage.getItem(INTEL_STORE) || "null");
+      if (!pack || !pack.bySlot) return;
+      if (!global.CC_NEWS_CACHE) global.CC_NEWS_CACHE = { bySlot: {} };
+      Object.assign(CC_NEWS_CACHE.bySlot, pack.bySlot);
+      if (pack.at) CC_NEWS_CACHE.at = pack.at;
+    } catch (err) { /* ignore */ }
+  }
+
+  function saveLive() {
+    try {
+      localStorage.setItem(INTEL_STORE, JSON.stringify({ at: Date.now(), bySlot: (global.CC_NEWS_CACHE || {}).bySlot || {} }));
+    } catch (err) { /* ignore */ }
+  }
+
+  function putRaw(m, raw) {
+    if (!global.CC_NEWS_CACHE) global.CC_NEWS_CACHE = { bySlot: {} };
+    if (!CC_NEWS_CACHE.bySlot) CC_NEWS_CACHE.bySlot = {};
+    if (m.slot) CC_NEWS_CACHE.bySlot[m.slot] = raw;
+    CC_NEWS_CACHE.bySlot[(m.date || "") + "|" + (m.home || "") + "|" + (m.away || "")] = raw;
+    CC_NEWS_CACHE.at = new Date().toTimeString().slice(0, 5);
+  }
+
+  function tallySide(games) {
+    const n = games.length;
+    const w = games.filter((g) => g.res === "W").length;
+    const d = games.filter((g) => g.res === "D").length;
+    const l = games.filter((g) => g.res === "L").length;
+    const gf = games.reduce((s, g) => s + (g.gf || 0), 0);
+    const ga = games.reduce((s, g) => s + (g.ga || 0), 0);
+    const streak = games.map((g) => g.res).join("");
+    return { n: n, w: w, d: d, l: l, gf: gf, ga: ga, streak: streak, games: games };
+  }
+
+  function gamesOf(rows, teamId) {
+    return (rows || []).slice().reverse().slice(0, 8).map((g) => {
+      const tt = g.tooltipText || {};
+      const ourHome = String((g.home && g.home.id) || "") === String(teamId);
+      const hs = Number(tt.homeScore);
+      const as = Number(tt.awayScore);
+      const gf = ourHome ? hs : as;
+      const ga = ourHome ? as : hs;
+      const res = gf > ga ? "W" : gf < ga ? "L" : "D";
+      return {
+        date: String(tt.utcTime || "").slice(0, 10),
+        opp: ourHome ? (tt.awayTeam || "") : (tt.homeTeam || ""),
+        home: ourHome,
+        gf: gf || 0,
+        ga: ga || 0,
+        res: res,
+        score: String(g.score || "").replace(/\s/g, ""),
+        comp: "",
+      };
+    });
+  }
+
+  function injOf(list) {
+    return (list || []).map((p) => ({
+      name: p.name || "",
+      pos: p.role || p.position || "",
+      reason: "伤停 · 复出 " + (((p.unavailability || {}).expectedReturn) || ""),
+      no: p.shirtNumber != null ? p.shirtNumber : null,
+    }));
+  }
+
+  function newsOfInsights(insights, teamId, side) {
+    return (insights || []).filter((x) => !teamId || x.teamId == null || String(x.teamId) === String(teamId)).slice(0, 4).map((x) => ({
+      kind: "情报",
+      t: "",
+      title: x.text || x.defaultText || "",
+      summary: "",
+      side: side,
+    }));
+  }
+
+  function mergeNews(oldRows, fresh) {
+    const seen = {};
+    const out = [];
+    [].concat(fresh || [], oldRows || []).forEach((x) => {
+      const k = (x.title || "") + (x.kind || "");
+      if (!k || seen[k] || !keep(x)) return;
+      seen[k] = true;
+      out.push(x);
+    });
+    return out.slice(0, 16);
+  }
+
+  async function detailsOf(id) {
+    const url = "https://www.fotmob.com/api/data/matchDetails?matchId=" + id;
+    if (global.CC_LIVE && CC_LIVE.getJson) return CC_LIVE.getJson(url);
+    const res = await fetch(url, { cache: "no-store" });
+    return res.json();
+  }
+
+  function applyDetails(m, json) {
+    const general = json.general || {};
+    const header = json.header || {};
+    const teams = header.teams || [];
+    const home = teams[0] || general.homeTeam || {};
+    const away = teams[1] || general.awayTeam || {};
+    const lineup = (json.content && json.content.lineup) || {};
+    const facts = (json.content && json.content.matchFacts) || {};
+    const form = facts.teamForm || [];
+    const insights = facts.insights || [];
+    const prev = (global.CC_NEWS_CACHE && CC_NEWS_CACHE.bySlot && (CC_NEWS_CACHE.bySlot[m.slot] || {})) || {};
+    const raw = {
+      slot: m.slot,
+      date: m.date,
+      home: m.home,
+      away: m.away,
+      homeId: home.id || prev.homeId,
+      awayId: away.id || prev.awayId,
+      matchId: general.matchId || prev.matchId,
+      homeLogo: (home.imageUrl || "").replace("_small.png", ".png") || prev.homeLogo,
+      awayLogo: (away.imageUrl || "").replace("_small.png", ".png") || prev.awayLogo,
+      homeNews: mergeNews(prev.homeNews, newsOfInsights(insights, home.id, "home").concat(injOf((lineup.homeTeam || {}).unavailable).map((p) => ({ kind: "伤停", t: "", title: (p.no != null ? p.no + " " : "") + p.name + " 缺阵", summary: p.reason })))),
+      awayNews: mergeNews(prev.awayNews, newsOfInsights(insights, away.id, "away").concat(injOf((lineup.awayTeam || {}).unavailable).map((p) => ({ kind: "伤停", t: "", title: (p.no != null ? p.no + " " : "") + p.name + " 缺阵", summary: p.reason })))),
+    };
+    putRaw(m, raw);
+    m.intel = lookup(m);
+    if (global.CC_FORM && CC_FORM.ingestLive) {
+      const hg = gamesOf(form[0], home.id);
+      const ag = gamesOf(form[1], away.id);
+      CC_FORM.ingestLive(m, {
+        homeSide: { recent: tallySide(hg), venue: tallySide(hg.filter((g) => g.home)), injuries: injOf((lineup.homeTeam || {}).unavailable) },
+        awaySide: { recent: tallySide(ag), road: tallySide(ag.filter((g) => !g.home)), injuries: injOf((lineup.awayTeam || {}).unavailable) },
+      });
+    }
+    return raw;
+  }
+
+  async function pullOne(m, force) {
+    const pack = lookup(m) || {};
+    const id = pack.matchId || m.matchId;
+    if (!id) return;
+    const key = String(id);
+    if (!force && pulledAt[key] && Date.now() - pulledAt[key] < 8 * 60 * 1000) return;
+    const json = await detailsOf(id);
+    pulledAt[key] = Date.now();
+    applyDetails(m, json);
+  }
+
+  async function mapPool(list, n, fn) {
+    const q = list.slice();
+    await Promise.all(Array.from({ length: n }, async () => {
+      while (q.length) {
+        const x = q.shift();
+        try { await fn(x); } catch (err) { /* 单场失败不影响整轮 */ }
+      }
+    }));
+  }
+
+  async function pullLive(matches, opt) {
+    const force = !!(opt && opt.force);
+    const list = (matches || []).filter((m) => m && m.source === "live");
+    const hot = list.filter((m) => m.liveState === "live" || m.liveState === "ft").concat(list);
+    const seen = {};
+    const uniq = [];
+    hot.forEach((m) => {
+      const k = matchKey(m);
+      if (seen[k]) return;
+      seen[k] = true;
+      uniq.push(m);
+    });
+    const cap = force ? 24 : 12;
+    await mapPool(uniq.slice(0, cap), 3, (m) => pullOne(m, force));
+    attachAll();
+    saveLive();
+    if (global.CC_FORM && CC_FORM.saveLive) CC_FORM.saveLive();
+    return uniq.length;
+  }
+
   global.CC_NEWS = {
     CATS, pinOk, isOpen, unlockMatch, lockMatch, matchKey, teamKey,
     lookup, feedOf, countOf, lockedCount, attachAll, boot: attachAll,
+    pullLive, loadLive, saveLive,
   };
 })(window);

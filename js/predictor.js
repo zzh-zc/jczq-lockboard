@@ -587,7 +587,8 @@
     });
     capDual(locked);
     realign(locked);
-    const all = keep.concat(locked);
+    let all = keep.concat(locked);
+    if (global.CC_BOARD && CC_BOARD.pruneList) all = CC_BOARD.pruneList(all);
     global.CC_DATA.jczq.matches = all;
     global.CC_DATA.jczq.title = "竞彩足球 · 在售 " + locked.length + " / 历史 " + keep.length;
     global.CC_DATA.jczq.version = (pack.booksOk ? "竞彩+500百家 " : "竞彩官方 SP ") + (pack.updatedAt || "");

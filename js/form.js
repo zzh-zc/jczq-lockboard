@@ -169,5 +169,54 @@
     });
   }
 
-  global.CC_FORM = { attachAll, lookup, wd, injText, willOf, fillFactors };
+  function putCache(m, pack) {
+    if (!global.CC_FORM_CACHE) global.CC_FORM_CACHE = { bySlot: {} };
+    if (!CC_FORM_CACHE.bySlot) CC_FORM_CACHE.bySlot = {};
+    pack.slot = pack.slot || m.slot;
+    pack.date = pack.date || m.date;
+    pack.home = pack.home || m.home;
+    pack.away = pack.away || m.away;
+    if (m.slot) CC_FORM_CACHE.bySlot[m.slot] = pack;
+    CC_FORM_CACHE.bySlot[(m.date || "") + "|" + (m.home || "") + "|" + (m.away || "")] = pack;
+    CC_FORM_CACHE.at = new Date().toTimeString().slice(0, 5);
+  }
+
+  function ingestLive(m, live) {
+    if (!m || !live) return lookup(m);
+    const prev = lookup(m) || { homeSide: {}, awaySide: {} };
+    const hs = Object.assign({}, prev.homeSide || {});
+    const as = Object.assign({}, prev.awaySide || {});
+    const lh = live.homeSide || {};
+    const la = live.awaySide || {};
+    if (lh.recent && lh.recent.n) hs.recent = lh.recent;
+    if (lh.venue && lh.venue.n) hs.venue = lh.venue;
+    if (lh.injuries && lh.injuries.length) hs.injuries = lh.injuries;
+    if (la.recent && la.recent.n) as.recent = la.recent;
+    if (la.road && la.road.n) as.road = la.road;
+    if (la.injuries && la.injuries.length) as.injuries = la.injuries;
+    const pack = { slot: m.slot, date: m.date, home: m.home, away: m.away, homeSide: hs, awaySide: as };
+    putCache(m, pack);
+    patch(m, pack);
+    return pack;
+  }
+
+  const FORM_STORE = "jczq-cc-form-live-v1";
+
+  function loadLive() {
+    try {
+      const pack = JSON.parse(localStorage.getItem(FORM_STORE) || "null");
+      if (!pack || !pack.bySlot) return;
+      if (!global.CC_FORM_CACHE) global.CC_FORM_CACHE = { bySlot: {} };
+      Object.assign(CC_FORM_CACHE.bySlot, pack.bySlot);
+      if (pack.at) CC_FORM_CACHE.at = pack.at;
+    } catch (err) { /* ignore */ }
+  }
+
+  function saveLive() {
+    try {
+      localStorage.setItem(FORM_STORE, JSON.stringify({ at: Date.now(), bySlot: (global.CC_FORM_CACHE || {}).bySlot || {} }));
+    } catch (err) { /* ignore */ }
+  }
+
+  global.CC_FORM = { attachAll, lookup, wd, injText, willOf, fillFactors, ingestLive, loadLive, saveLive };
 })(window);
