@@ -32,7 +32,7 @@
       liveScore: m.liveScore, liveState: m.liveState, liveMinute: m.liveMinute,
       handicap: m.handicap, source: m.source || "board", light: m.light, env: m.env,
       ttgPicks: m.ttgPicks, ftScores: m.ftScores, hadPicks: m.hadPicks,
-      hhadPicks: m.hhadPicks, hafuPicks: m.hafuPicks, summary: m.summary,
+      hhadPicks: m.hhadPicks, hafuPicks: m.hafuPicks, _mk: m._mk, summary: m.summary,
       steady: m.steady, why: m.why, market: m.market, engine: m.engine,
       will: m.will, factors: m.factors,
     };

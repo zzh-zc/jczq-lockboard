@@ -106,7 +106,7 @@
     if (!a.n || !d.n) return 1.25 + bump;
     const att = (a.gf || 0) / a.n;
     const def = (d.ga || 0) / d.n;
-    return Math.max(0.45, Math.min(3.1, (att + def) / 2 + bump));
+    return Math.max(0.45, Math.min(4.4, (att + def) / 2 + bump));
   }
 
   function poissonBlock(m, hs, as) {

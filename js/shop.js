@@ -138,7 +138,7 @@
     if (m.liveState === "live") return `<span class="shop-pill live">${esc(m.liveScore || "0-0")} ${esc(m.liveMinute || "")}</span>`;
     if (m.score) {
       const ok = hitOf(m);
-      return `<span class="shop-pill ${ok ? "live" : ""}">${esc(m.score)} ${ok === true ? "中" : ok === false ? "挂" : ""}</span>`;
+      return `<span class="shop-result">${esc(m.score)}</span>${ok === true ? '<span class="shop-hit">中</span>' : ok === false ? '<span class="shop-miss">挂</span>' : ""}`;
     }
     return "";
   }

@@ -43,7 +43,21 @@
     return (p[0] || 0) + (p[1] || 0);
   }
 
-  function scoreCtx(ttg, line, had, night) {
+  function leagueStyle(league) {
+    const g = String(league || "");
+    if (/意甲|法甲|葡超|日职|日乙|韩K|瑞超|芬超|奥甲|波甲|土超|苏超/.test(g)) return "grind";
+    if (/英超|德甲|荷甲|比甲|澳超|美职|解放者|欧冠|欧罗巴|欧协|西甲/.test(g)) return "open";
+    return "mid";
+  }
+
+  function formTotal(m) {
+    const hs = m && m.form && m.form.homeSide && m.form.homeSide.recent;
+    const as = m && m.form && m.form.awaySide && m.form.awaySide.recent;
+    if (!hs || !hs.n || !as || !as.n) return null;
+    return ((hs.gf || 0) / hs.n + (as.ga || 0) / as.n) * 0.5 + ((as.gf || 0) / as.n + (hs.ga || 0) / hs.n) * 0.5;
+  }
+
+  function scoreCtx(ttg, line, had, night, m) {
     let sum = 0;
     let wsum = 0;
     let peak = night ? 3 : 2;
@@ -59,38 +73,58 @@
         peak = i;
       }
     }
-    let aim = wsum ? sum / wsum : (night ? 3 : 2.4);
-    if (peak >= 3) aim = Math.max(aim, peak);
-    if (Math.abs(line || 0) >= 1) aim = Math.max(aim, 2.6);
+    let aim = wsum ? sum / wsum : (night ? 2.9 : 2.5);
+    const style = leagueStyle(m && m.league);
+    const ft = formTotal(m);
+    if (ft != null) aim = aim * 0.62 + ft * 0.38;
+    if (style === "grind") aim *= 0.9;
+    if (style === "open") aim *= 1.08;
+    if (night && style !== "grind") aim += 0.15;
+    if (peak >= 3) aim = Math.max(aim, peak * 0.92);
+    if (peak >= 4) aim = Math.max(aim, 3.35);
+    if (Math.abs(line || 0) >= 1.25) aim = Math.max(aim, 2.8);
     const fav = had ? Math.min(had.h || 9, had.d || 9, had.a || 9) : 9;
-    if (fav <= 1.25) aim = Math.max(aim, 3.1);
-    else if (fav <= 1.45) aim = Math.max(aim, 2.7);
+    if (fav <= 1.22) aim = Math.max(aim, 3.2);
+    else if (fav <= 1.4) aim = Math.max(aim, 2.85);
     let margin = 0;
-    if ((line || 0) <= -1.25) margin = 2;
-    else if ((line || 0) <= -0.75) margin = 1.2;
-    else if ((line || 0) >= 1.25) margin = -2;
-    else if ((line || 0) >= 0.75) margin = -1.2;
+    if ((line || 0) <= -1.75) margin = 2.6;
+    else if ((line || 0) <= -1.25) margin = 2.1;
+    else if ((line || 0) <= -0.75) margin = 1.25;
+    else if ((line || 0) >= 1.75) margin = -2.6;
+    else if ((line || 0) >= 1.25) margin = -2.1;
+    else if ((line || 0) >= 0.75) margin = -1.25;
     else if (had && had.h && had.a) {
-      if (had.h < had.a - 0.35) margin = fav <= 1.3 ? 2.1 : fav <= 1.7 ? 1.2 : 0.8;
-      else if (had.a < had.h - 0.35) margin = fav <= 1.3 ? -2.1 : fav <= 1.7 ? -1.2 : -0.8;
+      if (had.h < had.a - 0.35) margin = fav <= 1.28 ? 2.2 : fav <= 1.7 ? 1.25 : 0.7;
+      else if (had.a < had.h - 0.35) margin = fav <= 1.28 ? -2.2 : fav <= 1.7 ? -1.25 : -0.7;
     }
-    return { aim: aim, peak: peak, margin: margin, line: line || 0, fav: fav };
+    return { aim: aim, peak: peak, margin: margin, line: line || 0, fav: fav, style: style };
   }
 
   function clip(x, lo, hi) {
     return Math.max(lo, Math.min(hi, Math.round(x)));
   }
 
+  function fact(k) {
+    let x = 1;
+    for (let i = 2; i <= k; i += 1) x *= i;
+    return x;
+  }
+
+  function pois(l, k) {
+    return Math.exp(-l) * Math.pow(Math.max(l, 0.05), k) / fact(k);
+  }
+
   function oneScore(side, ctx, bump) {
-    const aim = (ctx && ctx.aim) || 2.4;
+    const aim = (ctx && ctx.aim) || 2.6;
     const mgn = (ctx && ctx.margin) || 0;
-    const t = Math.max(0, aim + (bump || 0));
+    const t = Math.max(1.4, aim + (bump || 0));
     if (side === "平") {
       let g = clip(t / 2, 0, 4);
-      if (bump && g >= 1) g = bump > 0 ? Math.min(4, g + 1) : Math.max(0, g - 1);
+      if (g === 0 && t >= 1.8) g = 1;
+      if (bump > 0) g = Math.min(4, Math.max(2, g + 1));
       return g + "-" + g;
     }
-    const mag = Math.max(1, Math.abs(mgn) + (bump ? 0.35 : 0));
+    const mag = Math.max(0.8, Math.abs(mgn) + (bump ? 0.45 : 0));
     let home = (t + (side === "胜" ? mag : -mag)) / 2;
     let away = t - home;
     if (side === "胜" && home <= away) home = away + 1;
@@ -102,75 +136,87 @@
     const s = sidesOf(pick);
     if (s.length === 1) {
       const a = oneScore(s[0], ctx, 0);
-      const b = oneScore(s[0], ctx, 0.85);
-      return a === b ? [a, oneScore(s[0], ctx, -0.85)] : [a, b];
+      const b = oneScore(s[0], ctx, ctx && ctx.aim >= 3 ? 1.15 : 0.9);
+      return a === b ? [a, oneScore(s[0], ctx, -0.7)] : [a, b];
     }
     return [oneScore(s[0], ctx, 0), oneScore(s[1], ctx, 0)];
   }
 
-  function preferScore(row, side, ctx) {
-    const tot = totOf(row);
-    const p = String(row.label).split("-").map(Number);
-    const margin = (p[0] || 0) - (p[1] || 0);
-    let w = Math.log(Math.max(row.odds, 1.05));
-    w += Math.abs(tot - ctx.aim) * 0.5;
-    if (side === "平") w += Math.abs(tot - Math.max(2, ctx.aim)) * 0.25;
-    else w += Math.abs(margin - ctx.margin) * 0.42;
-    if (ctx.aim >= 2.9 && tot >= 4 && tot <= 5) w -= 0.18;
-    if (ctx.aim <= 1.7 && tot >= 4) w += 0.55;
-    if (ctx.aim >= 2.4 && tot <= 1) w += 0.35;
-    return w;
+  function lambdas(ctx) {
+    const tot = Math.max(1.3, (ctx && ctx.aim) || 2.6);
+    const diff = (ctx && ctx.margin) || 0;
+    let home = (tot + diff) / 2;
+    let away = tot - home;
+    return { h: Math.max(0.3, Math.min(4.6, home)), a: Math.max(0.3, Math.min(4.6, away)) };
   }
 
-  function pickCrs(rows, side, ctx) {
-    const list = (rows || []).slice();
-    if (!list.length) return [];
-    list.sort((a, b) => a.odds - b.odds || preferScore(a, side, ctx) - preferScore(b, side, ctx));
-    const first = list[0];
-    const rest = list.filter((r) => totOf(r) !== totOf(first));
-    rest.sort((a, b) => Math.abs(totOf(a) - ctx.peak) - Math.abs(totOf(b) - ctx.peak) || a.odds - b.odds);
-    const second = rest[0] || list[1] || first;
-    return [first.label, second.label];
-  }
-
-  function crsAligned(crs, sides, ctx) {
-    const by = { 胜: [], 平: [], 负: [] };
+  function pickScores(sides, ctx, crs) {
+    const sideSet = sides && sides.length ? sides : ["胜"];
+    const la = lambdas(ctx);
+    const oddsMap = {};
     Object.keys(crs || {}).forEach((k) => {
       const hit = k.match(/^s(\d{2})s(\d{2})$/);
       if (!hit) return;
-      const h = Number(hit[1]);
-      const a = Number(hit[2]);
-      const odds = n(crs[k]);
-      if (!odds || odds < 1.01) return;
-      const side = h > a ? "胜" : h < a ? "负" : "平";
-      by[side].push({ label: h + "-" + a, odds: odds });
-    });
-    if (sides.length === 1) return pickCrs(by[sides[0]], sides[0], ctx).slice(0, 2);
-    const a = pickCrs(by[sides[0]], sides[0], ctx)[0];
-    const b = pickCrs(by[sides[1]], sides[1], ctx)[0];
-    return [a, b].filter(Boolean);
-  }
-
-  function ttgAligned(ttg, scores) {
-    const fromScores = [];
-    (scores || []).forEach((s) => {
-      const p = String(s).split("-");
-      if (p.length < 2) return;
-      const tot = Number(p[0]) + Number(p[1]);
-      const lab = tot >= 7 ? "7+" : tot + "球";
-      if (fromScores.indexOf(lab) < 0) fromScores.push(lab);
+      const o = n(crs[k]);
+      if (o && o >= 1.01) oddsMap[Number(hit[1]) + "-" + Number(hit[2])] = o;
     });
     const rows = [];
-    for (let i = 0; i <= 7; i += 1) {
-      const o = n((ttg || {})["s" + i]);
-      if (!o || o < 1.01) continue;
-      rows.push({ label: i >= 7 ? "7+" : i + "球", odds: o, i: i });
+    for (let i = 0; i <= 5; i += 1) {
+      for (let j = 0; j <= 5; j += 1) {
+        const side = i > j ? "胜" : i < j ? "负" : "平";
+        if (sideSet.indexOf(side) < 0) continue;
+        const tot = i + j;
+        if (tot === 0 && ctx.aim >= 2.2) continue;
+        if (ctx.style === "grind" && tot >= 6 && ctx.fav > 1.45) continue;
+        let p = pois(la.h, i) * pois(la.a, j);
+        const lab = i + "-" + j;
+        if (oddsMap[lab]) p *= 1 / Math.sqrt(oddsMap[lab]);
+        if (ctx.style === "open" && tot >= 3 && tot <= 5) p *= 1.18;
+        if (ctx.style === "open" && tot >= 4) p *= 1.12;
+        if (ctx.style === "grind" && tot <= 2) p *= 1.12;
+        if (ctx.style === "grind" && tot >= 5 && ctx.fav > 1.35) p *= 0.7;
+        if (ctx.aim >= 2.85 && tot <= 1) p *= 0.42;
+        if (ctx.aim >= 3.2 && tot <= 2) p *= 0.55;
+        if (ctx.aim >= 3.15 && tot >= 4) p *= 1.16;
+        if (ctx.aim <= 1.95 && tot >= 5) p *= 0.38;
+        if (ctx.fav <= 1.28 && Math.abs(i - j) >= 3) p *= 1.45;
+        if (ctx.fav <= 1.4 && /^(3-0|0-3|4-0|0-4|4-1|1-4|3-1|1-3)$/.test(lab)) p *= 1.28;
+        if (ctx.aim >= 3.5 && /^(3-2|2-3|4-1|1-4|4-0|0-4|3-0|0-3|4-2|2-4)$/.test(lab)) p *= 1.22;
+        rows.push({ label: lab, p: p, tot: tot, side: side, i: i, j: j });
+      }
     }
-    rows.sort((a, b) => a.odds - b.odds);
-    if (!rows.length) return pad2(fromScores, ["2球", "3球"]);
-    const peak = rows[0].i;
-    const near = rows.filter((r) => Math.abs(r.i - peak) <= 1).map((r) => r.label);
-    return pad2(fromScores, near.concat(rows.map((r) => r.label)));
+    rows.sort((a, b) => b.p - a.p);
+    if (!rows.length) return fallbackScores(sideSet.join("/"), ctx);
+    const first = rows[0];
+    const rest = rows.filter((r) => r.label !== first.label);
+    const swapLab = first.j + "-" + first.i;
+    const rest2 = rest.filter((r) => r.label !== swapLab);
+    const blow = rest2.filter((r) => r.side === first.side && Math.abs(r.i - r.j) >= 3);
+    const otherTot = rest2.filter((r) => r.tot !== first.tot && Math.abs(r.tot - ctx.aim) < 1.8);
+    let second = otherTot[0] || rest2[0] || rest[0] || first;
+    if (ctx.fav <= 1.32 && blow.length && first.tot <= 3) second = blow[0];
+    return [first.label, second.label];
+  }
+
+  function ttgFromScores(scores, ctx) {
+    const nums = [];
+    (scores || []).forEach((s) => {
+      const p = String(s).replace(/:/g, "-").split("-").map(Number);
+      if (p.length < 2 || Number.isNaN(p[0]) || Number.isNaN(p[1])) return;
+      const t = p[0] + p[1];
+      if (nums.indexOf(t) < 0) nums.push(t);
+    });
+    nums.sort((a, b) => a - b);
+    if (nums.length >= 2) {
+      return nums.slice(0, 2).map((t) => (t >= 7 ? "7+" : t + "球"));
+    }
+    const core = nums.length ? nums[0] : Math.max(1, Math.round((ctx && ctx.aim) || 3));
+    const peak = ctx && ctx.peak != null ? ctx.peak : core;
+    let alt = peak >= core ? core + 1 : core - 1;
+    if (alt < 0) alt = core + 1;
+    if (alt > 7) alt = Math.max(0, core - 1);
+    if (alt === core) alt = core + 1;
+    return [core >= 7 ? "7+" : core + "球", alt >= 7 ? "7+" : alt + "球"];
   }
 
   function hafuFt(lab) {
@@ -212,15 +258,15 @@
     locked.hhadPicks = hhadAligned(raw.hhad || {}, sides);
     const hh = Number(String(locked.kickoff || "00:00").slice(0, 2));
     const night = /欧冠|欧罗巴|欧协|英超|西甲|意甲|德甲|法甲/.test(String(locked.league || "")) || hh >= 21 || hh <= 5;
-    const ctx = scoreCtx(raw.ttg, line, hadOdds, night);
-    locked.ftScores = pad2(crsAligned(raw.crs, sides, ctx), fallbackScores(locked.pick, ctx));
-    locked.ttgPicks = ttgAligned(raw.ttg, locked.ftScores);
+    const ctx = scoreCtx(raw.ttg, line, hadOdds, night, locked);
+    locked.ftScores = pickScores(sides, ctx, raw.crs);
+    locked.ttgPicks = ttgFromScores(locked.ftScores, ctx);
     locked.hafuPicks = hafuAligned(raw.hafu, sides);
     locked.ftOu = locked.ttgPicks;
     locked.htScores = locked.hafuPicks;
     locked.htOu = locked.hafuPicks;
     locked.handicap = line ? (line > 0 ? "+" + line : String(line)) : locked.handicap || "";
-    locked.scriptNote = "胜平负跟欧赔去水；让球跟亚盘 " + (locked.handicap || "0") + "；比分和进球跟进球数盘峰值 " + ctx.peak + " 球；半全场跟半全场赔率。全是当场盘口，不套底稿。";
+    locked.scriptNote = "比分按期望进球+联赛风格推，进球数跟这两口比分对齐，不另开 1 球/4 球。让球 " + (locked.handicap || "0") + "。";
   }
 
   function realign(list) {
@@ -587,6 +633,7 @@
     });
     capDual(locked);
     realign(locked);
+    realign(keep);
     let all = keep.concat(locked);
     if (global.CC_BOARD && CC_BOARD.pruneList) all = CC_BOARD.pruneList(all);
     global.CC_DATA.jczq.matches = all;
@@ -856,8 +903,8 @@
     const line = mk.line != null ? mk.line : n(m && m.handicap) || 0;
     const hh = Number(String((m && m.kickoff) || "00:00").slice(0, 2));
     const night = /欧冠|欧罗巴|欧协|英超|西甲|意甲|德甲|法甲/.test(String((m && m.league) || "")) || hh >= 21 || hh <= 5;
-    const ctx = scoreCtx(mk.ttg, line, had, night);
-    return pad2(crsAligned(mk.crs, sidesOf(m && m.pick), ctx), fallbackScores(m && m.pick, ctx));
+    const ctx = scoreCtx(mk.ttg, line, had, night, m);
+    return pickScores(sidesOf(m && m.pick), ctx, mk.crs);
   }
 
   global.CC_PRED = { lockOne, apply, applyBeidan, applySfc, capDual, finish, explainAll, scoresOf };

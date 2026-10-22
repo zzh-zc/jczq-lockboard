@@ -106,6 +106,17 @@ body { padding-bottom: 88px; }
   box-shadow: 0 6px 16px rgba(216, 255, 62, 0.22);
 }
 .shop-pill.live { background: var(--ice); color: #04201c; }
+.shop-result {
+  display: inline-flex; align-items: center; min-height: 36px; padding: 8px 14px;
+  border-radius: 999px; background: #ff2d55; color: #fff; font-weight: 800; font-size: 14px;
+  box-shadow: 0 6px 16px rgba(255, 45, 85, 0.3);
+}
+.shop-hit, .shop-miss {
+  display: inline-flex; align-items: center; min-height: 36px; padding: 8px 12px;
+  border-radius: 999px; font-weight: 800; font-size: 13px;
+}
+.shop-hit { background: rgba(94, 234, 212, 0.16); color: var(--ice); }
+.shop-miss { background: rgba(255, 45, 85, 0.12); color: #ff8aa0; }
 .shop-fx {
   border: 0; background: transparent; color: var(--lime); font-size: 12px; font-weight: 700;
 }
@@ -166,7 +177,7 @@ body { padding-bottom: 88px; }
 .shop-sg { margin: 0 0 12px; padding: 12px; border-radius: 16px; background: rgba(255,255,255,0.04); border: 1px solid var(--line); }
 .shop-sg-hd { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; }
 .shop-sg-teams { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; font-weight: 700; }
-.shop-sg-score { color: var(--gold); font-size: 22px; }
+.shop-sg-score { color: #ff2d55; font-size: 22px; font-weight: 800; }
 .shop-bars { display: grid; gap: 8px; }
 .shop-bar { display: grid; grid-template-columns: 36px 1fr 48px; gap: 8px; align-items: center; font-size: 12px; }
 .shop-bar i { display: block; height: 8px; border-radius: 99px; background: linear-gradient(90deg, var(--violet), var(--lime)); }
