@@ -42,10 +42,23 @@
   }
 
   function leagueStyle(league) {
+    if (global.CC_FORM && CC_FORM.leagueProfile) return CC_FORM.leagueProfile(league).style;
     const g = String(league || "");
     if (/意甲|法甲|葡超|日职|日乙|韩K|瑞超|芬超|奥甲|波甲|土超|苏超/.test(g)) return "grind";
-    if (/英超|德甲|荷甲|比甲|澳超|美职|解放者|欧冠|欧罗巴|欧协|西甲/.test(g)) return "open";
+    if (/英超|德甲|荷甲|比甲|澳超|美职|解放者|欧冠/.test(g)) return "open";
     return "mid";
+  }
+
+  function profOf(m) {
+    if (m && m.leagueProf) return m.leagueProf;
+    if (global.CC_FORM && CC_FORM.leagueProfile) return CC_FORM.leagueProfile(m && m.league);
+    return { style: leagueStyle(m && m.league), draw: "mid", goals: "mid", note: "" };
+  }
+
+  function h2hOf(m) {
+    if (m && m.h2h && m.h2h.n) return m.h2h;
+    if (global.CC_FORM && CC_FORM.h2hOf) return CC_FORM.h2hOf(m);
+    return { n: 0, text: "交手样本不足。" };
   }
 
   function formTotal(m) {
@@ -72,12 +85,16 @@
       }
     }
     let aim = wsum ? sum / wsum : (night ? 2.7 : 2.4);
-    const style = leagueStyle(m && m.league);
+    const prof = profOf(m);
+    const style = prof.style || leagueStyle(m && m.league);
+    const goals = prof.goals || (style === "grind" ? "small" : (style === "open" ? "big" : "mid"));
     const ft = formTotal(m);
+    const h2h = h2hOf(m);
     if (ft != null) aim = aim * 0.78 + ft * 0.22;
-    if (style === "grind") aim *= 0.94;
-    if (style === "open") aim *= 1.04;
-    if (night && style === "open") aim += 0.08;
+    if (h2h && h2h.n >= 3 && h2h.avgTot) aim = aim * 0.72 + h2h.avgTot * 0.28;
+    if (goals === "small" || style === "grind") aim *= 0.90;
+    if (goals === "big" || style === "open") aim *= 1.08;
+    if (night && (goals === "big" || style === "open")) aim += 0.08;
     const fav = had ? Math.min(had.h || 9, had.d || 9, had.a || 9) : 9;
     let margin = 0;
     if ((line || 0) <= -1.75) margin = 2.4;
@@ -90,7 +107,7 @@
       if (had.h < had.a - 0.35) margin = fav <= 1.28 ? 2.0 : fav <= 1.7 ? 1.15 : 0.65;
       else if (had.a < had.h - 0.35) margin = fav <= 1.28 ? -2.0 : fav <= 1.7 ? -1.15 : -0.65;
     }
-    return { aim: aim, peak: peak, margin: margin, line: line || 0, fav: fav, style: style };
+    return { aim: aim, peak: peak, margin: margin, line: line || 0, fav: fav, style: style, goals: goals, draw: prof.draw };
   }
 
   function clip(x, lo, hi) {
@@ -162,13 +179,15 @@
       const o = n((ttg || {})["s" + i]);
       if (!o || o < 1.01) continue;
       let w = 1 / o;
-      if (ctx && ctx.style === "grind") {
-        if (i === 1 || i === 2) w *= 1.08;
-        if (i >= 4) w *= 0.82;
-        if (i === 0) w *= 0.9;
-      } else if (ctx && ctx.style === "open") {
-        if (i >= 4) w *= 1.06;
-        if (i <= 1) w *= 0.86;
+      const small = ctx && (ctx.goals === "small" || ctx.style === "grind");
+      const big = ctx && (ctx.goals === "big" || ctx.style === "open");
+      if (small) {
+        if (i === 1 || i === 2) w *= 1.14;
+        if (i >= 4) w *= 0.78;
+        if (i === 0) w *= 0.92;
+      } else if (big) {
+        if (i >= 4) w *= 1.12;
+        if (i <= 1) w *= 0.82;
       }
       if (drawOnly) w *= (i % 2 === 0 ? 1.28 : 0.48);
       rows.push({ i: i, o: o, w: w });
@@ -176,7 +195,7 @@
     if (!rows.length) {
       let core = Math.max(0, Math.min(6, Math.round((ctx && ctx.aim) || 2.5)));
       if (drawOnly && core % 2) core -= 1;
-      const alt = drawOnly ? core + 2 : (ctx && ctx.style === "grind" ? Math.max(0, core - 1) : core + 1);
+      const alt = drawOnly ? core + 2 : ((ctx && (ctx.goals === "small" || ctx.style === "grind")) ? Math.max(0, core - 1) : core + 1);
       const second = alt === core ? core + 1 : alt;
       return [ttgLab(core), ttgLab(second)];
     }
@@ -189,8 +208,10 @@
       second = rows.find((r) => r.i !== first.i && r.i % 2 === 0) || right || left || rows[1];
     } else if (left && right) {
       const close = Math.abs(left.w - right.w) < 0.04 * Math.max(left.w, right.w);
-      if (close && ctx && ctx.style === "grind") second = left;
-      else if (close && ctx && ctx.style === "open") second = right;
+      const small = ctx && (ctx.goals === "small" || ctx.style === "grind");
+      const big = ctx && (ctx.goals === "big" || ctx.style === "open");
+      if (close && small) second = left;
+      else if (close && big) second = right;
       else second = left.w >= right.w ? left : right;
     } else {
       second = left || right || rows[1] || first;
@@ -305,11 +326,19 @@
     locked.ttgPicks = pickTtg(raw.ttg, ctx, sides);
     locked.ftScores = pickScores(sides, ctx, raw.crs, ttgNums(locked.ttgPicks));
     locked.hafuPicks = hafuAligned(raw.hafu, sides);
+    if (ctx.draw === "high" && sides.indexOf("平") >= 0 && locked.hafuPicks.indexOf("平平") < 0) {
+      locked.hafuPicks = pad2(["平平"].concat(locked.hafuPicks), locked.hafuPicks);
+    }
+    if (ctx.draw === "high" && locked.hhadPicks.indexOf("让平") < 0) {
+      locked.hhadPicks = pad2([locked.hhadPicks[0], "让平"], locked.hhadPicks);
+    }
     locked.ftOu = locked.ttgPicks;
     locked.htScores = locked.hafuPicks;
     locked.htOu = locked.hafuPicks;
     locked.handicap = line ? (line > 0 ? "+" + line : String(line)) : locked.handicap || "";
-    locked.scriptNote = "进球数先跟进球盘峰值+邻档，比分再落到这两档总球上。让球 " + (locked.handicap || "0") + "。";
+    const prof = profOf(locked);
+    const h2h = h2hOf(locked);
+    locked.scriptNote = (prof.note || "进球数跟进球盘。") + (h2h.n ? " " + h2h.text : " 交手样本不足。") + " 让球 " + (locked.handicap || "0") + "。";
   }
 
   function realign(list) {
@@ -419,7 +448,8 @@
         lock: env !== "掺局区",
       };
     }
-    if (eu === "draw" || (w.drawish && w.drawish.test(String(league || "")) && eu === "home")) {
+    const prof = (global.CC_FORM && CC_FORM.leagueProfile) ? CC_FORM.leagueProfile(league) : {};
+    if (eu === "draw" || (prof.draw === "high" && eu === "home")) {
       return { pick: "主/平", dual: true, paperOppose: false, tag: eu === "draw" ? "偏平" : "平多联赛", light: "yellow", lock: true };
     }
     const side = eu === "away" ? o.a : o.h;
@@ -483,7 +513,7 @@
     while (list.filter((m) => m.dual).length > limit && extras.length) {
       const m = extras.pop();
       if (m.env === "掺局区" || m.env === "中可信") continue;
-      if (/低赔不单|对开|偏平|稳妥带平|中可信双|平多联赛/.test(m.tag || "")) continue;
+      if (/低赔不单|对开|偏平|稳妥带平|中可信双|平多联赛|交手多平/.test(m.tag || "")) continue;
       if ((keep[m.tag] != null ? keep[m.tag] : 9) <= 2) break;
       m.dual = false;
       collapsePick(m);
@@ -784,6 +814,29 @@
     return /让/.test(String(m.pick || "")) ? asHandicap(raw) : raw;
   }
 
+  function applyLeagueAndH2h(m) {
+    const prof = profOf(m);
+    const h2h = h2hOf(m);
+    m.leagueProf = prof;
+    m.h2h = h2h;
+    const pick = String(m.pick || "");
+    const single = !m.dual && !/\//.test(pick);
+    const addDraw = single && m.lock !== false && m.light !== "red"
+      && (prof.draw === "high" || (h2h.n >= 3 && h2h.drawish));
+    if (addDraw) {
+      const away = /客|让负/.test(pick) && !/主|让胜/.test(pick);
+      m.pick = away ? (/让/.test(pick) ? "让平/让负" : "平/客") : (/让/.test(pick) ? "让胜/让平" : "主/平");
+      m.dual = true;
+      m.light = "yellow";
+      m.tag = h2h.drawish ? "交手多平" : "平多联赛";
+      m.steady = (h2h.n ? h2h.text : prof.note) + " 单边不够，带平。";
+    } else {
+      m.steady = [m.steady, prof.note, h2h.n ? h2h.text : ""].filter(Boolean).join(" ");
+    }
+    if (m._mk) fillMarkets(m, m._mk, m._mk.had, m._mk.line);
+    return addDraw;
+  }
+
   function applyWill(m, eu, d) {
     const side = d.clashWill;
     if (!side || m.light === "red") return false;
@@ -816,7 +869,10 @@
       m.tag = "两边降档";
       return;
     }
-    if (applyWill(m, eu, d)) return;
+    if (applyWill(m, eu, d)) {
+      applyLeagueAndH2h(m);
+      return;
+    }
     if (clash) {
       m.lock = false;
       m.paperOppose = true;
@@ -824,7 +880,8 @@
       m.steady = clash;
       return;
     }
-    if (m.tag === "对开") {
+    applyLeagueAndH2h(m);
+    if (m.tag === "对开" && m.env === "掺局区") {
       m.lock = false;
       return;
     }
@@ -849,7 +906,7 @@
     if (will && will.gap === "都轻") return "路过";
     if (m.env === "掺局区" || m.env === "中可信" || m.tag === "名额满才单") return "少买";
     if (m.tag === "战意改向" || m.tag === "战意定边" || m.tag === "跟一边") return m.dual ? "买两边" : "买一边";
-    if (m.tag === "低赔不单" || m.tag === "胶着" || m.tag === "偏平" || m.tag === "平多联赛" || m.tag === "对开") return "买两边";
+    if (m.tag === "低赔不单" || m.tag === "胶着" || m.tag === "偏平" || m.tag === "平多联赛" || m.tag === "交手多平" || m.tag === "对开") return "买两边";
     if (m.dual) return "买两边";
     if (m.light === "green") return "买一边";
     return "路过";

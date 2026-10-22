@@ -230,6 +230,7 @@ body { padding-bottom: 88px; }
 .shop-wdl.l { color: #ff5d8f; background: rgba(255,93,143,0.12); }
 .shop-wdl-row { margin: 8px 0; }
 .shop-hist { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+.shop-hist .shop-block { margin: 0 6px 12px; }
 .shop-game {
   display: grid; grid-template-columns: 48px 1fr auto auto; gap: 6px;
   align-items: center; font-size: 12px; padding: 6px 0; border-bottom: 1px dashed var(--line);

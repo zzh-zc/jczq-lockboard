@@ -171,25 +171,27 @@
   }
 
   function gamesOf(rows, teamId) {
-    return (rows || []).slice().reverse().slice(0, 8).map((g) => {
+    return (rows || []).slice().reverse().map((g) => {
       const tt = g.tooltipText || {};
-      const ourHome = String((g.home && g.home.id) || "") === String(teamId);
+      const ourHome = String((g.home && g.home.id) || tt.homeTeamId || "") === String(teamId);
       const hs = Number(tt.homeScore);
       const as = Number(tt.awayScore);
       const gf = ourHome ? hs : as;
       const ga = ourHome ? as : hs;
       const res = gf > ga ? "W" : gf < ga ? "L" : "D";
+      const comp = (g.tournament && g.tournament.name) || (g.league && g.league.name) || "";
       return {
-        date: String(tt.utcTime || "").slice(0, 10),
-        opp: ourHome ? (tt.awayTeam || "") : (tt.homeTeam || ""),
+        date: String((tt.utcTime || (g.date && g.date.utcTime) || "")).slice(0, 10),
+        opp: ourHome ? (tt.awayTeam || (g.away && g.away.name) || "") : (tt.homeTeam || (g.home && g.home.name) || ""),
+        oppId: ourHome ? (tt.awayTeamId || (g.away && g.away.id)) : (tt.homeTeamId || (g.home && g.home.id)),
         home: ourHome,
         gf: gf || 0,
         ga: ga || 0,
         res: res,
         score: String(g.score || "").replace(/\s/g, ""),
-        comp: "",
+        comp: comp,
       };
-    });
+    }).filter((g) => !/友谊|Friendly/i.test(g.comp || ""));
   }
 
   function injOf(list) {
@@ -260,6 +262,10 @@
       const hg = gamesOf(form[0], home.id);
       const ag = gamesOf(form[1], away.id);
       CC_FORM.ingestLive(m, {
+        homeId: home.id || prev.homeId,
+        awayId: away.id || prev.awayId,
+        homeEn: home.name || home.longName || "",
+        awayEn: away.name || away.longName || "",
         homeSide: { recent: tallySide(hg), venue: tallySide(hg.filter((g) => g.home)), injuries: injOf((lineup.homeTeam || {}).unavailable) },
         awaySide: { recent: tallySide(ag), road: tallySide(ag.filter((g) => !g.home)), injuries: injOf((lineup.awayTeam || {}).unavailable) },
       });

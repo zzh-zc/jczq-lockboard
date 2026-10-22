@@ -147,6 +147,8 @@
           <span class="shop-pill">${esc(ui.hafuText ? ui.hafuText(m) : ((m.hafuPicks || []).join("/") || "—"))}</span>
         </div>
         <p>倾向 ${esc(ui.hadText(m))}，动作 ${esc(m.action || "")}。${esc(m.steady || m.tag || "")}</p>
+        <p>${esc((m.leagueProf && m.leagueProf.note) || "")}</p>
+        <p>${esc((m.h2h && m.h2h.text) || "交手样本不足。")}</p>
       </div>
       <div class="shop-block"><h3>队伍的实力</h3>
         <p>${esc(sideLine(m.home, hs, "主场"))}</p>
@@ -284,11 +286,33 @@
     `;
   }
 
+  function h2hHtml(m) {
+    const h2h = m.h2h || (global.CC_FORM && CC_FORM.h2hOf && CC_FORM.h2hOf(m)) || { n: 0, text: "交手样本不足。", games: [] };
+    const prof = m.leagueProf || (global.CC_FORM && CC_FORM.leagueProfile && CC_FORM.leagueProfile(m.league)) || {};
+    const rows = (h2h.games || []).slice(0, 6).map((g) => {
+      const cls = g.res === "W" ? "w" : g.res === "L" ? "l" : "d";
+      const lab = g.res === "W" ? "主胜" : g.res === "L" ? "客胜" : "平";
+      return `<div class="shop-game"><span>${esc((g.date || "").slice(5))}</span><span>${esc(g.comp || "交手")}</span><b class="${cls}">${esc(g.score || "")}</b><i class="shop-wdl ${cls}">${esc(lab)}</i></div>`;
+    }).join("");
+    return `
+      <div class="shop-block">
+        <h3>历史对战</h3>
+        <p>${esc(h2h.text)}</p>
+        ${rows || "<p class='shop-note' style='padding:8px 0'>近况名单里还没有交手。</p>"}
+      </div>
+      <div class="shop-block">
+        <h3>联赛风格</h3>
+        <p>${esc(prof.note || "联赛风格不明。")}</p>
+        <p>${esc("平局档 " + (prof.draw || "mid") + " · 进球档 " + (prof.goals || "mid") + "。小球联赛偏平/让平，大球联赛跟对攻。")}</p>
+      </div>
+    `;
+  }
+
   function histHtml(m) {
     const pack = packOf(m);
     const hs = (pack && pack.homeSide) || {};
     const as = (pack && pack.awaySide) || {};
-    return `<div class="shop-hist">${histCol(m.home, hs, "主场")}${histCol(m.away, as, "客场")}</div>`;
+    return `${h2hHtml(m)}<div class="shop-hist">${histCol(m.home, hs, "主场")}${histCol(m.away, as, "客场")}</div>`;
   }
 
   function lockSvg(open) {
