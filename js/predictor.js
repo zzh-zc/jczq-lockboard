@@ -38,11 +38,6 @@
     return out.slice(0, 2);
   }
 
-  function totOf(row) {
-    const p = String(row.label).split("-").map(Number);
-    return (p[0] || 0) + (p[1] || 0);
-  }
-
   function leagueStyle(league) {
     const g = String(league || "");
     if (/意甲|法甲|葡超|日职|日乙|韩K|瑞超|芬超|奥甲|波甲|土超|苏超/.test(g)) return "grind";
@@ -60,7 +55,7 @@
   function scoreCtx(ttg, line, had, night, m) {
     let sum = 0;
     let wsum = 0;
-    let peak = night ? 3 : 2;
+    let peak = 2;
     let peakO = 99;
     for (let i = 0; i <= 7; i += 1) {
       const o = n((ttg || {})["s" + i]);
@@ -73,29 +68,24 @@
         peak = i;
       }
     }
-    let aim = wsum ? sum / wsum : (night ? 2.9 : 2.5);
+    let aim = wsum ? sum / wsum : (night ? 2.7 : 2.4);
     const style = leagueStyle(m && m.league);
     const ft = formTotal(m);
-    if (ft != null) aim = aim * 0.62 + ft * 0.38;
-    if (style === "grind") aim *= 0.9;
-    if (style === "open") aim *= 1.08;
-    if (night && style !== "grind") aim += 0.15;
-    if (peak >= 3) aim = Math.max(aim, peak * 0.92);
-    if (peak >= 4) aim = Math.max(aim, 3.35);
-    if (Math.abs(line || 0) >= 1.25) aim = Math.max(aim, 2.8);
+    if (ft != null) aim = aim * 0.78 + ft * 0.22;
+    if (style === "grind") aim *= 0.94;
+    if (style === "open") aim *= 1.04;
+    if (night && style === "open") aim += 0.08;
     const fav = had ? Math.min(had.h || 9, had.d || 9, had.a || 9) : 9;
-    if (fav <= 1.22) aim = Math.max(aim, 3.2);
-    else if (fav <= 1.4) aim = Math.max(aim, 2.85);
     let margin = 0;
-    if ((line || 0) <= -1.75) margin = 2.6;
-    else if ((line || 0) <= -1.25) margin = 2.1;
-    else if ((line || 0) <= -0.75) margin = 1.25;
-    else if ((line || 0) >= 1.75) margin = -2.6;
-    else if ((line || 0) >= 1.25) margin = -2.1;
-    else if ((line || 0) >= 0.75) margin = -1.25;
+    if ((line || 0) <= -1.75) margin = 2.4;
+    else if ((line || 0) <= -1.25) margin = 1.9;
+    else if ((line || 0) <= -0.75) margin = 1.15;
+    else if ((line || 0) >= 1.75) margin = -2.4;
+    else if ((line || 0) >= 1.25) margin = -1.9;
+    else if ((line || 0) >= 0.75) margin = -1.15;
     else if (had && had.h && had.a) {
-      if (had.h < had.a - 0.35) margin = fav <= 1.28 ? 2.2 : fav <= 1.7 ? 1.25 : 0.7;
-      else if (had.a < had.h - 0.35) margin = fav <= 1.28 ? -2.2 : fav <= 1.7 ? -1.25 : -0.7;
+      if (had.h < had.a - 0.35) margin = fav <= 1.28 ? 2.0 : fav <= 1.7 ? 1.15 : 0.65;
+      else if (had.a < had.h - 0.35) margin = fav <= 1.28 ? -2.0 : fav <= 1.7 ? -1.15 : -0.65;
     }
     return { aim: aim, peak: peak, margin: margin, line: line || 0, fav: fav, style: style };
   }
@@ -150,9 +140,64 @@
     return { h: Math.max(0.3, Math.min(4.6, home)), a: Math.max(0.3, Math.min(4.6, away)) };
   }
 
-  function pickScores(sides, ctx, crs) {
-    const sideSet = sides && sides.length ? sides : ["胜"];
-    const la = lambdas(ctx);
+  function ttgLab(i) {
+    return i >= 7 ? "7+" : i + "球";
+  }
+
+  function ttgNums(picks) {
+    return (picks || []).map((p) => {
+      if (/7\+/.test(String(p))) return 7;
+      const x = Number(String(p).replace(/[^\d]/g, ""));
+      return Number.isFinite(x) ? x : null;
+    }).filter((x) => x != null);
+  }
+
+  function pickTtg(ttg, ctx, sides) {
+    const drawOnly = sides && sides.length === 1 && sides[0] === "平";
+    const rows = [];
+    for (let i = 0; i <= 7; i += 1) {
+      const o = n((ttg || {})["s" + i]);
+      if (!o || o < 1.01) continue;
+      let w = 1 / o;
+      if (ctx && ctx.style === "grind") {
+        if (i === 1 || i === 2) w *= 1.08;
+        if (i >= 4) w *= 0.82;
+        if (i === 0) w *= 0.9;
+      } else if (ctx && ctx.style === "open") {
+        if (i >= 4) w *= 1.06;
+        if (i <= 1) w *= 0.86;
+      }
+      if (drawOnly) w *= (i % 2 === 0 ? 1.28 : 0.48);
+      rows.push({ i: i, o: o, w: w });
+    }
+    if (!rows.length) {
+      let core = Math.max(0, Math.min(6, Math.round((ctx && ctx.aim) || 2.5)));
+      if (drawOnly && core % 2) core -= 1;
+      const alt = drawOnly ? core + 2 : (ctx && ctx.style === "grind" ? Math.max(0, core - 1) : core + 1);
+      const second = alt === core ? core + 1 : alt;
+      return [ttgLab(core), ttgLab(second)];
+    }
+    rows.sort((a, b) => b.w - a.w);
+    const first = rows[0];
+    const left = rows.find((r) => r.i === first.i - 1);
+    const right = rows.find((r) => r.i === first.i + 1);
+    let second;
+    if (drawOnly) {
+      second = rows.find((r) => r.i !== first.i && r.i % 2 === 0) || right || left || rows[1];
+    } else if (left && right) {
+      const close = Math.abs(left.w - right.w) < 0.04 * Math.max(left.w, right.w);
+      if (close && ctx && ctx.style === "grind") second = left;
+      else if (close && ctx && ctx.style === "open") second = right;
+      else second = left.w >= right.w ? left : right;
+    } else {
+      second = left || right || rows[1] || first;
+    }
+    const lo = first.i <= second.i ? first : second;
+    const hi = first.i <= second.i ? second : first;
+    return [ttgLab(lo.i), ttgLab(hi.i)];
+  }
+
+  function crsMap(crs) {
     const oddsMap = {};
     Object.keys(crs || {}).forEach((k) => {
       const hit = k.match(/^s(\d{2})s(\d{2})$/);
@@ -160,63 +205,58 @@
       const o = n(crs[k]);
       if (o && o >= 1.01) oddsMap[Number(hit[1]) + "-" + Number(hit[2])] = o;
     });
-    const rows = [];
-    for (let i = 0; i <= 5; i += 1) {
-      for (let j = 0; j <= 5; j += 1) {
-        const side = i > j ? "胜" : i < j ? "负" : "平";
-        if (sideSet.indexOf(side) < 0) continue;
-        const tot = i + j;
-        if (tot === 0 && ctx.aim >= 2.2) continue;
-        if (ctx.style === "grind" && tot >= 6 && ctx.fav > 1.45) continue;
-        let p = pois(la.h, i) * pois(la.a, j);
-        const lab = i + "-" + j;
-        if (oddsMap[lab]) p *= 1 / Math.sqrt(oddsMap[lab]);
-        if (ctx.style === "open" && tot >= 3 && tot <= 5) p *= 1.18;
-        if (ctx.style === "open" && tot >= 4) p *= 1.12;
-        if (ctx.style === "grind" && tot <= 2) p *= 1.12;
-        if (ctx.style === "grind" && tot >= 5 && ctx.fav > 1.35) p *= 0.7;
-        if (ctx.aim >= 2.85 && tot <= 1) p *= 0.42;
-        if (ctx.aim >= 3.2 && tot <= 2) p *= 0.55;
-        if (ctx.aim >= 3.15 && tot >= 4) p *= 1.16;
-        if (ctx.aim <= 1.95 && tot >= 5) p *= 0.38;
-        if (ctx.fav <= 1.28 && Math.abs(i - j) >= 3) p *= 1.45;
-        if (ctx.fav <= 1.4 && /^(3-0|0-3|4-0|0-4|4-1|1-4|3-1|1-3)$/.test(lab)) p *= 1.28;
-        if (ctx.aim >= 3.5 && /^(3-2|2-3|4-1|1-4|4-0|0-4|3-0|0-3|4-2|2-4)$/.test(lab)) p *= 1.22;
-        rows.push({ label: lab, p: p, tot: tot, side: side, i: i, j: j });
-      }
-    }
-    rows.sort((a, b) => b.p - a.p);
-    if (!rows.length) return fallbackScores(sideSet.join("/"), ctx);
-    const first = rows[0];
-    const rest = rows.filter((r) => r.label !== first.label);
-    const swapLab = first.j + "-" + first.i;
-    const rest2 = rest.filter((r) => r.label !== swapLab);
-    const blow = rest2.filter((r) => r.side === first.side && Math.abs(r.i - r.j) >= 3);
-    const otherTot = rest2.filter((r) => r.tot !== first.tot && Math.abs(r.tot - ctx.aim) < 1.8);
-    let second = otherTot[0] || rest2[0] || rest[0] || first;
-    if (ctx.fav <= 1.32 && blow.length && first.tot <= 3) second = blow[0];
-    return [first.label, second.label];
+    return oddsMap;
   }
 
-  function ttgFromScores(scores, ctx) {
-    const nums = [];
-    (scores || []).forEach((s) => {
-      const p = String(s).replace(/:/g, "-").split("-").map(Number);
-      if (p.length < 2 || Number.isNaN(p[0]) || Number.isNaN(p[1])) return;
-      const t = p[0] + p[1];
-      if (nums.indexOf(t) < 0) nums.push(t);
-    });
-    nums.sort((a, b) => a - b);
-    if (nums.length >= 2) {
-      return nums.slice(0, 2).map((t) => (t >= 7 ? "7+" : t + "球"));
+  function scoreCells(tot) {
+    const out = [];
+    if (tot >= 7) {
+      for (let i = 0; i <= 6; i += 1) {
+        for (let j = 0; j <= 6; j += 1) {
+          if (i + j >= 7) out.push([i, j]);
+        }
+      }
+      return out;
     }
-    const core = nums.length ? nums[0] : Math.max(1, Math.round((ctx && ctx.aim) || 3));
-    const peak = ctx && ctx.peak != null ? ctx.peak : core;
-    let alt = peak >= core ? core + 1 : core - 1;
-    if (alt < 0) alt = core + 1;
-    if (alt > 7) alt = Math.max(0, core - 1);
-    if (alt === core) alt = core + 1;
-    return [core >= 7 ? "7+" : core + "球", alt >= 7 ? "7+" : alt + "球"];
+    for (let i = 0; i <= tot; i += 1) {
+      const j = tot - i;
+      if (j >= 0 && j <= 6) out.push([i, j]);
+    }
+    return out;
+  }
+
+  function bestScoreForTot(tot, sideSet, ctx, oddsMap, avoid) {
+    const la = lambdas(ctx);
+    const rows = [];
+    scoreCells(tot).forEach((pair) => {
+      const i = pair[0];
+      const j = pair[1];
+      const side = i > j ? "胜" : i < j ? "负" : "平";
+      if (sideSet.indexOf(side) < 0) return;
+      const lab = i + "-" + j;
+      if (lab === avoid) return;
+      let p = pois(la.h, i) * pois(la.a, j);
+      if (oddsMap[lab]) p *= 1 / Math.sqrt(oddsMap[lab]);
+      if (ctx.fav <= 1.28 && Math.abs(i - j) >= 3) p *= 1.32;
+      rows.push({ label: lab, p: p });
+    });
+    rows.sort((a, b) => b.p - a.p);
+    return rows[0] || null;
+  }
+
+  function pickScores(sides, ctx, crs, tots) {
+    const sideSet = sides && sides.length ? sides : ["胜"];
+    const oddsMap = crsMap(crs);
+    const targets = (tots || []).filter((t) => t >= 0).slice(0, 2);
+    if (!targets.length) return fallbackScores(sideSet.join("/"), ctx);
+    const a = bestScoreForTot(targets[0], sideSet, ctx, oddsMap, "");
+    const b = bestScoreForTot(targets[1] != null ? targets[1] : targets[0], sideSet, ctx, oddsMap, a ? a.label : "");
+    if (a && b) return [a.label, b.label];
+    if (a) {
+      const extra = bestScoreForTot(targets[0], sideSet, ctx, oddsMap, a.label);
+      return extra ? [a.label, extra.label] : [a.label, a.label];
+    }
+    return fallbackScores(sideSet.join("/"), ctx);
   }
 
   function hafuFt(lab) {
@@ -259,14 +299,14 @@
     const hh = Number(String(locked.kickoff || "00:00").slice(0, 2));
     const night = /欧冠|欧罗巴|欧协|英超|西甲|意甲|德甲|法甲/.test(String(locked.league || "")) || hh >= 21 || hh <= 5;
     const ctx = scoreCtx(raw.ttg, line, hadOdds, night, locked);
-    locked.ftScores = pickScores(sides, ctx, raw.crs);
-    locked.ttgPicks = ttgFromScores(locked.ftScores, ctx);
+    locked.ttgPicks = pickTtg(raw.ttg, ctx, sides);
+    locked.ftScores = pickScores(sides, ctx, raw.crs, ttgNums(locked.ttgPicks));
     locked.hafuPicks = hafuAligned(raw.hafu, sides);
     locked.ftOu = locked.ttgPicks;
     locked.htScores = locked.hafuPicks;
     locked.htOu = locked.hafuPicks;
     locked.handicap = line ? (line > 0 ? "+" + line : String(line)) : locked.handicap || "";
-    locked.scriptNote = "比分按期望进球+联赛风格推，进球数跟这两口比分对齐，不另开 1 球/4 球。让球 " + (locked.handicap || "0") + "。";
+    locked.scriptNote = "进球数先跟进球盘峰值+邻档，比分再落到这两档总球上。让球 " + (locked.handicap || "0") + "。";
   }
 
   function realign(list) {
@@ -904,7 +944,8 @@
     const hh = Number(String((m && m.kickoff) || "00:00").slice(0, 2));
     const night = /欧冠|欧罗巴|欧协|英超|西甲|意甲|德甲|法甲/.test(String((m && m.league) || "")) || hh >= 21 || hh <= 5;
     const ctx = scoreCtx(mk.ttg, line, had, night, m);
-    return pickScores(sidesOf(m && m.pick), ctx, mk.crs);
+    const sides = sidesOf(m && m.pick);
+    return pickScores(sides, ctx, mk.crs, ttgNums(pickTtg(mk.ttg, ctx, sides)));
   }
 
   global.CC_PRED = { lockOne, apply, applyBeidan, applySfc, capDual, finish, explainAll, scoresOf };
