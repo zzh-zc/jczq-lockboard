@@ -962,6 +962,7 @@
   }
 
   function stampOpenHit(hit, src, full) {
+    if (global.CC_HISTORY_DB && CC_HISTORY_DB.isFrozen(hit)) return;
     hit.pick = src.pick;
     hit.dual = src.dual;
     hit.tag = src.tag;
@@ -1137,7 +1138,8 @@
       if (!jcFootSlot(m)) return false;
       if (m.source === "live") return true;
       if (isOpenRow(m)) return true;
-      if (m.source === "hist" || m.source === "board") return inTenDay(m);
+      if (m.source === "hist" || m.source === "board" || m.source === "db") return inTenDay(m);
+      if (m.sealed) return inTenDay(m);
       return inTenDay(m) && (m.pick || m.score || m.result);
     });
   }

@@ -1,0 +1,12 @@
+services:
+  jczq-history:
+    build: .
+    ports:
+      - "8787:8787"
+    environment:
+      JCZQ_DB_PATH: /data/jczq.db
+      JCZQ_API_KEY: ${JCZQ_API_KEY:-}
+      JCZQ_PORT: "8787"
+    volumes:
+      - ./data:/data
+    restart: unless-stopped

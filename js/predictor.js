@@ -341,6 +341,7 @@
 
   function realign(list) {
     (list || []).forEach((m) => {
+      if (m.sealed || m.source === "db") return;
       if (m.manuscript || !m._mk || m.score || m.result) return;
       fillMarkets(m, m._mk, m._mk.had, m._mk.line);
     });
@@ -948,6 +949,7 @@
 
   function applySteady(m) {
     if (!m || m.source !== "live") return;
+    if (m.sealed || m.source === "db") return;
     if (m.manuscript) return;
     if (m.score || m.result) return;
     if (m.light === "red") return;
@@ -1144,6 +1146,10 @@
   }
 
   function histLock(row) {
+    const frozen = ((global.CC_DATA || {}).jczq || {}).matches || [];
+    const dbHit = frozen.find((m) => m && m.slot === row.slot && (m.sealed || m.source === "db"));
+    if (dbHit) return Object.assign({}, dbHit);
+    if (global.CC_HISTORY_DB && CC_HISTORY_DB.isFrozen(row)) return null;
     const fromBoard = histFromBoard(row);
     if (fromBoard) return fromBoard;
     const o = spOf(row) || priorOdds(row.league);
@@ -1213,6 +1219,7 @@
       if (!/周[一二三四五六日]\d{3}/.test(String(row.slot || ""))) return;
       if (alreadyHave(cur, row) || alreadyHave(extra, row)) return;
       const locked = histLock(row);
+      if (!locked) return;
       const iss = locked.issueDate || locked.date || row.date;
       if (cut && iss && iss < cut) return;
       if (iss && iss > today) return;
@@ -1260,6 +1267,10 @@
     }
     if (global.CC_BOARD && CC_BOARD.load) CC_BOARD.load();
     if (global.CC_EXTRAS && CC_EXTRAS.applyOpen) CC_EXTRAS.applyOpen();
+    if (global.CC_HISTORY_DB && CC_HISTORY_DB.sealFinished) {
+      const list = (((global.CC_DATA || {}).jczq || {}).matches) || [];
+      CC_HISTORY_DB.sealFinished(list.filter((m) => m && !m.sealed && m.source !== "db"));
+    }
     explainAll();
   }
 

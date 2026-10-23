@@ -973,6 +973,9 @@
     const hint = $("refreshHint");
     if (hint) hint.textContent = force ? "正在拉盘口、消息和预测…" : "正在拉最新锁号…";
     try {
+      if (window.CC_HISTORY_DB && global.CC_CONFIG && CC_CONFIG.historyApi) {
+        try { await CC_HISTORY_DB.loadIntoData(); } catch (e0) { /* 历史库离线 */ }
+      }
       if (window.CC_LIVE && window.CC_PRED) {
         let pack = await CC_LIVE.pull();
         if (window.CC_LIVE.pullScores) await CC_LIVE.pullScores(pack.matches);
@@ -1037,30 +1040,36 @@
   setInterval(tickClock, 1000);
   tickClock();
 
-  if (window.CC_FORM && CC_FORM.loadLive) CC_FORM.loadLive();
-  if (window.CC_NEWS && CC_NEWS.loadLive) CC_NEWS.loadLive();
-  if (window.CC_BOARD) CC_BOARD.load();
-  if (window.CC_FORM) CC_FORM.attachAll();
-  if (window.CC_NEWS) CC_NEWS.boot();
-  if (window.CC_ENGINE) CC_ENGINE.attachAll();
-  try {
-    if (window.CC_PRED && window.CC_JC_CACHE && CC_JC_CACHE.matches && CC_JC_CACHE.matches.length) {
-      const locked = CC_PRED.apply(CC_JC_CACHE);
-      if (window.CC_SFC_CACHE) CC_PRED.applySfc(CC_SFC_CACHE, locked);
-      CC_PRED.finish();
-      if (window.CC_REVIEW && CC_REVIEW.ingest) CC_REVIEW.ingest((CC_DATA.jczq && CC_DATA.jczq.matches) || []);
-      if (window.CC_LIVE && CC_LIVE.pullScores) {
-        CC_LIVE.pullScores(CC_DATA.jczq.matches).then(() => { render(); }).catch(() => {});
-      }
-    } else if (window.CC_PRED && CC_PRED.explainAll) {
-      CC_PRED.explainAll();
+  async function boot() {
+    if (window.CC_FORM && CC_FORM.loadLive) CC_FORM.loadLive();
+    if (window.CC_NEWS && CC_NEWS.loadLive) CC_NEWS.loadLive();
+    if (window.CC_BOARD) CC_BOARD.load();
+    if (window.CC_HISTORY_DB && global.CC_CONFIG && CC_CONFIG.historyApi) {
+      try { await CC_HISTORY_DB.loadIntoData(); } catch (e0) { /* 历史库离线 */ }
     }
-  } catch (err) {
-    if (window.CC_PRED && CC_PRED.explainAll) CC_PRED.explainAll();
+    if (window.CC_FORM) CC_FORM.attachAll();
+    if (window.CC_NEWS) CC_NEWS.boot();
+    if (window.CC_ENGINE) CC_ENGINE.attachAll();
+    try {
+      if (window.CC_PRED && window.CC_JC_CACHE && CC_JC_CACHE.matches && CC_JC_CACHE.matches.length) {
+        const locked = CC_PRED.apply(CC_JC_CACHE);
+        if (window.CC_SFC_CACHE) CC_PRED.applySfc(CC_SFC_CACHE, locked);
+        CC_PRED.finish();
+        if (window.CC_REVIEW && CC_REVIEW.ingest) CC_REVIEW.ingest((CC_DATA.jczq && CC_DATA.jczq.matches) || []);
+        if (window.CC_LIVE && CC_LIVE.pullScores) {
+          CC_LIVE.pullScores(CC_DATA.jczq.matches).then(() => { render(); }).catch(() => {});
+        }
+      } else if (window.CC_PRED && CC_PRED.explainAll) {
+        CC_PRED.explainAll();
+      }
+    } catch (err) {
+      if (window.CC_PRED && CC_PRED.explainAll) CC_PRED.explainAll();
+    }
+    topStats();
+    jumpDateForView();
+    if (window.CC_SHOP && CC_SHOP.jumpLive) CC_SHOP.jumpLive();
+    render();
+    refreshData(true);
   }
-  topStats();
-  jumpDateForView();
-  if (window.CC_SHOP && CC_SHOP.jumpLive) CC_SHOP.jumpLive();
-  render();
-  refreshData(true);
+  boot();
 })();
