@@ -707,7 +707,7 @@
       code: "001", slot: "周五001", league: "澳超", date: "2026-10-23", kickoff: "17:00",
       home: "布里斯班", away: "珀斯", sp: "1.96 / 3.32 / 3.15",
       pick: "主", dual: false, env: "掺局区", paperOppose: false, tag: "跟一边",
-      ttgPicks: ["2球", "3球"], ftScores: ["1-0", "2-1"], hafuPicks: ["平胜", "胜胜"],
+      ttgPicks: ["2球", "3球"], ftScores: ["2-0", "2-1"], hafuPicks: ["平胜", "胜胜"],
       summary: "主 1.96。澳超第 2 轮，掺局区少串。珀斯刚客负麦克阿瑟。主场略整，跟一边。",
       factors: eleven({
         战意: "两边都是联赛一轮。布里斯班主场要开张，珀斯刚客场输，客场求生。主更重。",
@@ -727,7 +727,7 @@
       code: "002", slot: "周五002", league: "德乙", date: "2026-10-24", kickoff: "00:30",
       home: "波鸿", away: "沃夫斯堡", sp: "2.88 / 3.72 / 1.95",
       pick: "客", dual: false, env: "中可信", paperOppose: false, tag: "跟一边",
-      ttgPicks: ["3球", "4球"], ftScores: ["0-2", "1-2"], hafuPicks: ["平负", "负负"],
+      ttgPicks: ["3球", "4球"], ftScores: ["1-2", "0-3"], hafuPicks: ["平负", "负负"],
       summary: "客 1.95。波鸿近 3 负，沃夫斯堡能翻能灌。内容同向，1.95 能单。中可信少串。",
       factors: eleven({
         战意: "波鸿主场要停败。沃夫斯堡第 3 要续。客更重。",
@@ -747,7 +747,7 @@
       code: "003", slot: "周五003", league: "瑞超", date: "2026-10-24", kickoff: "01:00",
       home: "埃夫斯堡", away: "马尔默", sp: "1.90 / 3.50 / 3.15",
       pick: "主", dual: false, env: "掺局区", paperOppose: false, tag: "跟一边",
-      ttgPicks: ["2球", "3球"], ftScores: ["1-0", "2-1"], hafuPicks: ["平胜", "胜胜"],
+      ttgPicks: ["2球", "3球"], ftScores: ["2-0", "2-1"], hafuPicks: ["平胜", "胜胜"],
       summary: "主 1.90。埃夫斯堡近 4 个 3 胜 1 平。马尔默扬松赛季报销。掺局区跟主，少串。",
       factors: eleven({
         战意: "埃夫斯堡主场刚 4-0，要续。马尔默刚主场输哈肯，客场求生。主更重。",
@@ -767,7 +767,7 @@
       code: "004", slot: "周五004", league: "荷甲", date: "2026-10-24", kickoff: "02:00",
       home: "前进之鹰", away: "特尔斯达", sp: "1.39 / 4.38 / 5.50",
       pick: "主/平", dual: true, env: "高可信", paperOppose: false, tag: "低赔不单",
-      ttgPicks: ["3球", "4球"], ftScores: ["2-1", "1-1"], hafuPicks: ["胜胜", "平平"],
+      ttgPicks: ["3球", "4球"], ftScores: ["2-1", "3-1"], hafuPicks: ["胜胜", "平平"],
       summary: "主 1.39。前进之鹰近 4 个全平后刚 1-4。特尔斯达保级会漏也会磨。1.39 禁止死胆，锁主/平。",
       factors: eleven({
         战意: "前进之鹰主场要停败。特尔斯达客场求生。主更重。",
@@ -787,7 +787,7 @@
       code: "005", slot: "周五005", league: "荷乙", date: "2026-10-24", kickoff: "02:00",
       home: "布雷达", away: "赫拉克勒", sp: "2.30 / 3.60 / 2.40",
       pick: "客", dual: false, env: "掺局区", paperOppose: false, tag: "榜首给脸",
-      ttgPicks: ["3球", "4球"], ftScores: ["1-2", "0-2"], hafuPicks: ["平负", "负负"],
+      ttgPicks: ["3球", "4球"], ftScores: ["1-2", "0-3"], hafuPicks: ["平负", "负负"],
       summary: "对开 2.30 / 2.40。赫拉克勒榜首刚客场 5-1。布雷达也连胜。对开不跟主场税，跟榜首，不买两张。掺局区少串。",
       factors: eleven({
         战意: "赫拉克勒榜首要续。布雷达主场连胜也要。客更整一档。",
@@ -827,7 +827,7 @@
       code: "007", slot: "周五007", league: "意甲", date: "2026-10-24", kickoff: "02:45",
       home: "都灵", away: "蒙扎", sp: "1.89 / 3.35 / 3.32",
       pick: "主", dual: false, env: "高可信", paperOppose: false, tag: "跟一边",
-      ttgPicks: ["2球", "3球"], ftScores: ["1-0", "2-0"], hafuPicks: ["胜胜", "平胜"],
+      ttgPicks: ["2球", "3球"], ftScores: ["2-0", "2-1"], hafuPicks: ["胜胜", "平胜"],
       summary: "主 1.89。都灵刚客场 3-0 帕尔马。蒙扎主场能翻，客场刚 1-3 拉齐奥。主场近况同向，1.89 能单。",
       factors: eleven({
         战意: "都灵主场要续。蒙扎客场求生。主更重。",
@@ -847,7 +847,7 @@
       code: "008", slot: "周五008", league: "法甲", date: "2026-10-24", kickoff: "02:45",
       home: "布雷斯特", away: "尼斯", sp: "2.10 / 3.35 / 2.82",
       pick: "主", dual: false, env: "高可信", paperOppose: false, tag: "跟一边",
-      ttgPicks: ["2球", "3球"], ftScores: ["1-0", "2-1"], hafuPicks: ["平胜", "胜胜"],
+      ttgPicks: ["2球", "3球"], ftScores: ["2-0", "2-1"], hafuPicks: ["平胜", "胜胜"],
       summary: "主 2.10。布雷斯特刚 5-1 昂热、客场逼平里尔。尼斯刚客负里昂。主场近况同向，跟一边。",
       factors: eleven({
         战意: "布雷斯特主场要续。尼斯客场刚输要给脸。主更重。",
@@ -867,7 +867,7 @@
       code: "009", slot: "周五009", league: "英超", date: "2026-10-24", kickoff: "03:00",
       home: "伊普斯", away: "诺丁汉", sp: "2.80 / 3.25 / 2.17",
       pick: "主", dual: false, env: "高可信", paperOppose: true, tag: "战意改向",
-      ttgPicks: ["2球", "3球"], ftScores: ["2-1", "1-0"], hafuPicks: ["胜胜", "平胜"],
+      ttgPicks: ["2球", "3球"], ftScores: ["2-1", "2-0"], hafuPicks: ["胜胜", "平胜"],
       summary: "客 2.17 是队名和交锋。伊普斯第 10 进 11 球，森林第 19 只进 5 球三连败。内容向主，不跟客热。锁主。",
       factors: eleven({
         战意: "伊普斯主场刚赢富勒姆，客场和曼城踢了 3-2，这场要分。森林三连败第 19 也急，但客场刚 1-3 宫、0-1 阿森纳。主更重。",
@@ -927,7 +927,7 @@
       code: "012", slot: "周五012", league: "葡超", date: "2026-10-24", kickoff: "03:45",
       home: "吉马良斯", away: "马里迪莫", sp: "1.52 / 3.60 / 5.15",
       pick: "主/平", dual: true, env: "高可信", paperOppose: false, tag: "低赔不单",
-      ttgPicks: ["2球", "1球"], ftScores: ["1-0", "1-1"], hafuPicks: ["胜胜", "平平"],
+      ttgPicks: ["1球", "2球"], ftScores: ["1-0", "1-1"], hafuPicks: ["胜胜", "平平"],
       summary: "主 1.52。吉马良斯联赛近况平平，刚杯赛才赢。马里迪莫能磨。1.52 禁止死胆，锁主/平。",
       factors: eleven({
         战意: "吉马良斯主场要分。马里迪莫客场求生。主更重。",
@@ -980,6 +980,7 @@
       hit.ftOu = src.ttgPicks;
       hit.htScores = src.hafuPicks;
       hit.htOu = src.hafuPicks;
+      if (global.CC_PRED && CC_PRED.alignTtgCrs) CC_PRED.alignTtgCrs(hit);
       hit.light = src.dual ? "yellow" : "green";
       hit.lock = true;
       hit.action = src.dual ? "少买" : "买一边";

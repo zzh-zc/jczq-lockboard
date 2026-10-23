@@ -1246,5 +1246,24 @@
     return pickScores(sides, ctx, mk.crs, ttgNums(pickTtg(mk.ttg, ctx, sides)));
   }
 
-  global.CC_PRED = { lockOne, apply, applyBeidan, applySfc, capDual, finish, explainAll, scoresOf, hydrateHistory, backfillMarkets };
+  function hadFromSp(m) {
+    const nums = String((m && m.sp) || "").match(/(\d+\.\d+)/g) || [];
+    if (nums.length < 3) return null;
+    return { h: +nums[0], d: +nums[1], a: +nums[2] };
+  }
+
+  function alignTtgCrs(m) {
+    if (!m || !m.pick || !(m.ttgPicks || []).length) return;
+    const mk = m._mk || {};
+    const had = (mk.had && n(mk.had.h)) ? mk.had : (hadFromSp(m) || {});
+    const line = mk.line != null ? mk.line : n(m.handicap) || 0;
+    const hh = Number(String(m.kickoff || "00:00").slice(0, 2));
+    const night = /欧冠|欧罗巴|欧协|英超|西甲|意甲|德甲|法甲/.test(String(m.league || "")) || hh >= 21 || hh <= 5;
+    const ctx = scoreCtx(mk.ttg, line, had, night, m);
+    const sides = sidesOf(m.pick);
+    m.ftScores = pickScores(sides, ctx, mk.crs, ttgNums(m.ttgPicks));
+    m.ftOu = m.ttgPicks;
+  }
+
+  global.CC_PRED = { lockOne, apply, applyBeidan, applySfc, capDual, finish, explainAll, scoresOf, alignTtgCrs, hydrateHistory, backfillMarkets };
 })(window);
