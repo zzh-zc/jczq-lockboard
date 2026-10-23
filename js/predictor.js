@@ -265,19 +265,34 @@
     return rows[0] || null;
   }
 
+  function scoreTot(lab) {
+    const hit = String(lab || "").match(/(\d+)-(\d+)/);
+    return hit ? (+hit[1] + +hit[2]) : -1;
+  }
+
   function pickScores(sides, ctx, crs, tots) {
     const sideSet = sides && sides.length ? sides : ["胜"];
     const oddsMap = crsMap(crs);
-    const targets = (tots || []).filter((t) => t >= 0).slice(0, 2);
-    if (!targets.length) return fallbackScores(sideSet.join("/"), ctx);
-    const a = bestScoreForTot(targets[0], sideSet, ctx, oddsMap, "");
-    const b = bestScoreForTot(targets[1] != null ? targets[1] : targets[0], sideSet, ctx, oddsMap, a ? a.label : "");
-    if (a && b) return [a.label, b.label];
-    if (a) {
-      const extra = bestScoreForTot(targets[0], sideSet, ctx, oddsMap, a.label);
+    const nums = [];
+    (tots || []).forEach((t) => {
+      if (t >= 0 && nums.indexOf(t) < 0) nums.push(t);
+    });
+    nums.sort((a, b) => a - b);
+    if (!nums.length) return fallbackScores(sideSet.join("/"), ctx);
+    const lo = nums[0];
+    const hi = nums[nums.length - 1];
+    const a = bestScoreForTot(lo, sideSet, ctx, oddsMap, "");
+    if (!a) return fallbackScores(sideSet.join("/"), ctx);
+    if (hi === lo) {
+      const extra = bestScoreForTot(lo, sideSet, ctx, oddsMap, a.label);
       return extra ? [a.label, extra.label] : [a.label, a.label];
     }
-    return fallbackScores(sideSet.join("/"), ctx);
+    let b = bestScoreForTot(hi, sideSet, ctx, oddsMap, a.label);
+    if (!b || scoreTot(b.label) !== hi) {
+      b = bestScoreForTot(hi, sideSet, ctx, oddsMap, "");
+    }
+    if (b && scoreTot(b.label) === hi) return [a.label, b.label];
+    return [a.label, a.label];
   }
 
   function hafuFt(lab) {

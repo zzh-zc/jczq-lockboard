@@ -727,7 +727,7 @@
       code: "002", slot: "周五002", league: "德乙", date: "2026-10-24", kickoff: "00:30",
       home: "波鸿", away: "沃夫斯堡", sp: "2.88 / 3.72 / 1.95",
       pick: "客", dual: false, env: "中可信", paperOppose: false, tag: "跟一边",
-      ttgPicks: ["3球", "4球"], ftScores: ["1-2", "0-3"], hafuPicks: ["平负", "负负"],
+      ttgPicks: ["3球", "4球"], ftScores: ["1-2", "1-3"], hafuPicks: ["平负", "负负"],
       summary: "客 1.95。波鸿近 3 负，沃夫斯堡能翻能灌。内容同向，1.95 能单。中可信少串。",
       factors: eleven({
         战意: "波鸿主场要停败。沃夫斯堡第 3 要续。客更重。",
@@ -787,7 +787,7 @@
       code: "005", slot: "周五005", league: "荷乙", date: "2026-10-24", kickoff: "02:00",
       home: "布雷达", away: "赫拉克勒", sp: "2.30 / 3.60 / 2.40",
       pick: "客", dual: false, env: "掺局区", paperOppose: false, tag: "榜首给脸",
-      ttgPicks: ["3球", "4球"], ftScores: ["1-2", "0-3"], hafuPicks: ["平负", "负负"],
+      ttgPicks: ["3球", "4球"], ftScores: ["1-2", "1-3"], hafuPicks: ["平负", "负负"],
       summary: "对开 2.30 / 2.40。赫拉克勒榜首刚客场 5-1。布雷达也连胜。对开不跟主场税，跟榜首，不买两张。掺局区少串。",
       factors: eleven({
         战意: "赫拉克勒榜首要续。布雷达主场连胜也要。客更整一档。",
@@ -807,7 +807,7 @@
       code: "006", slot: "周五006", league: "德甲", date: "2026-10-24", kickoff: "02:30",
       home: "斯图加特", away: "门兴", sp: "1.26 / 5.45 / 6.55",
       pick: "主/平", dual: true, env: "高可信", paperOppose: false, tag: "1.26禁止死胆",
-      ttgPicks: ["2球", "3球"], ftScores: ["2-0", "1-1"], hafuPicks: ["胜胜", "平平"],
+      ttgPicks: ["2球", "3球"], ftScores: ["2-0", "2-1"], hafuPicks: ["胜胜", "平胜"],
       summary: "主 1.26。门兴 0 分 6 连败。斯图加特联赛第 13，欧冠刚 1-1 马竞，一周双赛。内容向主，深盘禁止死胆，锁主/平。",
       factors: eleven({
         战意: "斯图加特主场要停联赛连不胜。门兴客场要首分，更能磨。主更重。",
@@ -887,7 +887,7 @@
       code: "010", slot: "周五010", league: "英冠", date: "2026-10-24", kickoff: "03:00",
       home: "博尔顿", away: "米堡", sp: "4.95 / 4.30 / 1.44",
       pick: "平/客", dual: true, env: "中可信", paperOppose: false, tag: "低赔不单",
-      ttgPicks: ["2球", "3球"], ftScores: ["0-2", "1-1"], hafuPicks: ["负负", "平负"],
+      ttgPicks: ["2球", "3球"], ftScores: ["0-2", "1-2"], hafuPicks: ["负负", "平负"],
       summary: "客 1.44。米堡第 3 不败。博尔顿能进也能磨。内容向客，1.44 禁止死胆，锁平/客。",
       factors: eleven({
         战意: "米堡客场要续。博尔顿主场刚输斯托克要给脸。客更重。",
