@@ -480,6 +480,10 @@
       by[k].n += 1;
       if (m.score || m.result) by[k].done += 1;
     });
+    if (by[t] && by[t].n) {
+      state.date = t;
+      return;
+    }
     const todayKeys = Object.keys(by).filter((k) => k === t || all().some((m) => issueKey(m) === k && m.date === t));
     todayKeys.sort((a, b) => (by[b].done - by[a].done) || (by[b].n - by[a].n) || b.localeCompare(a));
     if (todayKeys[0] && by[todayKeys[0]].done >= 5) {
