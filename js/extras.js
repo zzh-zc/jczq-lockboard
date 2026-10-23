@@ -641,6 +641,48 @@
       }),
     },
     {
+      code: "011", slot: "周四011", league: "欧协联", date: "2026-10-23", kickoff: "03:00",
+      home: "阿贾克斯", away: "亚特兰大", sp: "1.95 / 3.68 / 2.90",
+      pick: "主/平", dual: true, env: "中可信", paperOppose: false, tag: "欧协带平",
+      score: "2-0", result: "主", htScore: "0-0",
+      ttgPicks: ["2球", "3球"], ftScores: ["1-0", "2-1"], hafuPicks: ["胜胜", "平胜"],
+      summary: "主 1.95。阿贾克斯主场要续，亚特兰大意甲客场能磨。欧协联对开感，1.95 不单，锁主/平。补录：当时 HAD 晚开漏进底稿。",
+      factors: eleven({
+        战意: "阿贾克斯主场欧战要分。亚特兰大意甲客场求生，两边都重。",
+        利益关系: "无。",
+        赛事优先级: "欧协联二轮。两边都是主业，主场合同略硬。",
+        实力: "阿贾克斯荷甲主场能翻。亚特兰大意甲客场不是虫，但会磨。",
+        主客: "阿贾克斯主场。亚特兰大客场能守。",
+        伤停轮换: "公开名单没点到能改号的核心缺席，不拿伤停改号。",
+        赛程: "欧协联一轮。",
+        阵容特性: "欧协能磨能翻。进球盘 2/3 球，不默认小球。",
+        重要程度: "1.95 对开感。跟主带平。",
+        发布会: "没收到点名不上，不拿发布会改号。",
+        SP: "1.95 / 3.68 / 2.90，让 0。跟主带平。",
+      }),
+    },
+    {
+      code: "012", slot: "周四012", league: "欧协联", date: "2026-10-23", kickoff: "03:00",
+      home: "摩纳哥", away: "弗赖堡", sp: "1.93 / 3.35 / 3.20",
+      pick: "主", dual: false, env: "中可信", paperOppose: false, tag: "跟一边",
+      score: "3-0", result: "主", htScore: "1-0",
+      ttgPicks: ["2球", "3球"], ftScores: ["2-1", "3-1"], hafuPicks: ["胜胜", "平胜"],
+      summary: "主 1.93。摩纳哥法甲主场要续，弗赖堡德甲客场能磨但会漏。内容向主，1.93 能单。补录：当时 HAD 晚开漏进底稿。",
+      factors: eleven({
+        战意: "摩纳哥主场欧战要分。弗赖堡客场求生。主更重。",
+        利益关系: "无。",
+        赛事优先级: "欧协联一轮。摩纳哥主场是大钱。",
+        实力: "摩纳哥主场能翻。弗赖堡德甲能进也会漏。",
+        主客: "摩纳哥主场。弗赖堡客场不是龙。",
+        伤停轮换: "公开名单没点到能改号的核心缺席，不拿伤停改号。",
+        赛程: "欧协联一轮。",
+        阵容特性: "两边都能进。进球盘 2/3 球。",
+        重要程度: "内容向主。1.93 能单。",
+        发布会: "没收到点名不上，不拿发布会改号。",
+        SP: "1.93 / 3.35 / 3.20，让 0。跟主。",
+      }),
+    },
+    {
       code: "013", slot: "周四013", league: "解放者杯", date: "2026-10-23", kickoff: "08:30",
       home: "弗拉门戈", away: "拉普大学", sp: "1.26 / 4.28 / 9.75",
       pick: "主/平", dual: true, env: "高可信", paperOppose: false, tag: "1.26禁止死胆",
@@ -1016,6 +1058,7 @@
       mergeMissing(PAST_JC, "_pastMerged");
     }
     mergeMissing(OPEN_JC, "");
+    syncFromResultCache();
     applyOpen();
     applySfcOpen();
     const slateDate = { jczq: "2026-10-21", beidan: "2026-10-21", r14: "2026-10-21", r9: "2026-10-21" };
@@ -1042,6 +1085,18 @@
       });
     });
     pruneToJc();
+  }
+
+  function syncFromResultCache() {
+    if (!global.CC_RESULT_CACHE || !global.CC_DATA || !CC_DATA.jczq) return;
+    const rows = (CC_RESULT_CACHE.matches || []).filter((m) => /周[一二三四五六日]\d{3}/.test(String(m.slot || "")));
+    if (!rows.length) return;
+    mergeMissing(rows.map((m) => {
+      const row = Object.assign({}, m);
+      if (!row.source) row.source = "board";
+      if (!row.issueDate && global.CC_ODDS && CC_ODDS.stampIssue) CC_ODDS.stampIssue(row);
+      return row;
+    }), "");
   }
 
   function isOpenRow(m) {
