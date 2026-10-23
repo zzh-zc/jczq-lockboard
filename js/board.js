@@ -106,7 +106,7 @@
       ttgPicks: m.ttgPicks, ftScores: m.ftScores, hadPicks: m.hadPicks,
       hhadPicks: m.hhadPicks, hafuPicks: m.hafuPicks, _mk: m._mk, summary: m.summary,
       steady: m.steady, why: m.why, market: m.market, engine: m.engine,
-      will: m.will, factors: m.factors,
+      will: m.will, factors: m.factors, manuscript: m.manuscript,
     };
   }
 
@@ -188,5 +188,5 @@
     return save(all.filter((m) => m.source !== "hist"));
   }
 
-  global.CC_BOARD = { DAYS, today, cutIso, inWindow, keyOf, load, pruneAndSave, pruneList, save, collapseTwins };
+  global.CC_BOARD = { DAYS, today, cutIso, inWindow, keyOf, read, load, pruneAndSave, pruneList, save, collapseTwins };
 })(window);

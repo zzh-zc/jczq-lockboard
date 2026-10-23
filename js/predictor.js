@@ -1089,6 +1089,7 @@
 
   function backfillMarkets(m) {
     if (!m || m.source === "sfc-history") return;
+    if (m.manuscript) return;
     if ((m.ttgPicks || []).length >= 2 && (m.ftScores || []).length >= 2 && (m.hafuPicks || []).length) return;
     const o = spOf(m) || priorOdds(m.league);
     if (!o) return;
@@ -1122,7 +1123,29 @@
     });
   }
 
+  function histFromBoard(row) {
+    if (!global.CC_BOARD || !CC_BOARD.read || !CC_BOARD.keyOf) return null;
+    const stub = Object.assign({}, row);
+    if (global.CC_ODDS && CC_ODDS.stampIssue) CC_ODDS.stampIssue(stub);
+    const key = CC_BOARD.keyOf(stub);
+    const hit = CC_BOARD.read().find((m) => m && CC_BOARD.keyOf(m) === key);
+    if (!hit || !hit.pick) return null;
+    const locked = Object.assign({}, hit, {
+      source: "hist",
+      score: row.score || hit.score || "",
+      result: row.result || hit.result || "",
+      htScore: row.htScore || hit.htScore || "",
+      matchId: row.matchId || hit.matchId,
+    });
+    if (global.CC_ODDS && CC_ODDS.stampIssue) CC_ODDS.stampIssue(locked);
+    if (locked.ttgPicks && locked.ttgPicks.length) alignTtgCrs(locked);
+    locked.manuscript = true;
+    return locked;
+  }
+
   function histLock(row) {
+    const fromBoard = histFromBoard(row);
+    if (fromBoard) return fromBoard;
     const o = spOf(row) || priorOdds(row.league);
     const env = envOf(row.league);
     const euro = /欧冠|欧罗巴|欧协/.test(String(row.league || ""));
@@ -1186,12 +1209,13 @@
     const extra = [];
     const rows = ((global.CC_RESULT_CACHE || {}).matches) || [];
     rows.forEach((row) => {
-      if (!row || !row.date || (cut && row.date < cut) || row.date > today) return;
+      if (!row || !row.date) return;
       if (!/周[一二三四五六日]\d{3}/.test(String(row.slot || ""))) return;
       if (alreadyHave(cur, row) || alreadyHave(extra, row)) return;
       const locked = histLock(row);
-      const iss = locked.issueDate || locked.date;
+      const iss = locked.issueDate || locked.date || row.date;
       if (cut && iss && iss < cut) return;
+      if (iss && iss > today) return;
       extra.push(locked);
     });
     numberHistSlots(extra);
@@ -1234,6 +1258,9 @@
         CC_RESULT.attachList(((global.CC_DATA || {})[key] || {}).matches);
       });
     }
+    if (global.CC_BOARD && CC_BOARD.load) CC_BOARD.load();
+    if (global.CC_EXTRAS && CC_EXTRAS.applyOpen) CC_EXTRAS.applyOpen();
+    explainAll();
   }
 
   function scoresOf(m) {

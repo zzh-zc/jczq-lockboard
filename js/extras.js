@@ -961,19 +961,15 @@
     return String(a || "") === String(b || "");
   }
 
-  function applyOpen(list) {
-    const rows = list || (((global.CC_DATA || {}).jczq || {}).matches) || [];
-    OPEN_JC.forEach((src) => {
-      if (!src.source) src.source = "board";
-      const hit = rows.find((m) => m && (m.slot === src.slot || (sameOpen(m.home, src.home) && sameOpen(m.away, src.away))));
-      if (!hit) return;
-      hit.pick = src.pick;
-      hit.dual = src.dual;
-      hit.tag = src.tag;
-      hit.env = src.env || hit.env;
-      hit.paperOppose = src.paperOppose;
-      hit.summary = src.summary;
-      hit.factors = src.factors;
+  function stampOpenHit(hit, src, full) {
+    hit.pick = src.pick;
+    hit.dual = src.dual;
+    hit.tag = src.tag;
+    hit.env = src.env || hit.env;
+    hit.paperOppose = src.paperOppose;
+    hit.summary = src.summary;
+    if (src.factors && src.factors.length) hit.factors = src.factors;
+    if (full && src.ttgPicks && src.ttgPicks.length) {
       hit.ttgPicks = src.ttgPicks;
       hit.ftScores = src.ftScores;
       hit.hafuPicks = src.hafuPicks;
@@ -981,16 +977,32 @@
       hit.htScores = src.hafuPicks;
       hit.htOu = src.hafuPicks;
       if (global.CC_PRED && CC_PRED.alignTtgCrs) CC_PRED.alignTtgCrs(hit);
-      hit.manuscript = true;
-      hit.light = src.dual ? "yellow" : "green";
-      hit.lock = true;
-      hit.action = src.dual ? "少买" : "买一边";
-      if (src.sp) hit.sp = src.sp;
-      if (src.score) {
-        hit.score = src.score;
-        hit.result = src.result;
-        hit.htScore = src.htScore;
-      }
+    }
+    hit.manuscript = true;
+    hit.light = src.dual ? "yellow" : "green";
+    hit.lock = true;
+    hit.action = src.dual ? "少买" : "买一边";
+    if (src.sp) hit.sp = src.sp;
+    if (src.score) {
+      hit.score = src.score;
+      hit.result = src.result;
+      hit.htScore = src.htScore;
+    }
+  }
+
+  function applyOpen(list) {
+    const rows = list || (((global.CC_DATA || {}).jczq || {}).matches) || [];
+    OPEN_JC.forEach((src) => {
+      if (!src.source) src.source = "board";
+      const hit = rows.find((m) => m && (m.slot === src.slot || (sameOpen(m.home, src.home) && sameOpen(m.away, src.away))));
+      if (!hit) return;
+      stampOpenHit(hit, src, true);
+    });
+    PAST_JC.forEach((src) => {
+      const slot = src.slot || (src.code ? "周二" + String(src.code).replace(/\D/g, "").padStart(3, "0") : "");
+      const hit = rows.find((m) => m && (m.slot === slot || (sameOpen(m.home, src.home) && sameOpen(m.away, src.away))));
+      if (!hit) return;
+      stampOpenHit(hit, src, false);
     });
     return rows;
   }
@@ -1108,14 +1120,25 @@
     return inOpen || inPast;
   }
 
+  function jcFootSlot(m) {
+    return /周[一二三四五六日]\d{3}/.test(String(m && m.slot || ""));
+  }
+
+  function inTenDay(m) {
+    const iso = (m && (m.issueDate || m.date)) || "";
+    if (global.CC_BOARD && CC_BOARD.inWindow) return CC_BOARD.inWindow(iso);
+    return !!iso;
+  }
+
   function pruneToJc() {
     if (!global.CC_DATA || !CC_DATA.jczq) return;
     CC_DATA.jczq.matches = (CC_DATA.jczq.matches || []).filter((m) => {
       if (!m || m.source === "sfc-history") return false;
+      if (!jcFootSlot(m)) return false;
       if (m.source === "live") return true;
       if (isOpenRow(m)) return true;
-      if (m.source === "hist") return /周[一二三四五六日]\d{3}/.test(String(m.slot || ""));
-      return false;
+      if (m.source === "hist" || m.source === "board") return inTenDay(m);
+      return inTenDay(m) && (m.pick || m.score || m.result);
     });
   }
 
