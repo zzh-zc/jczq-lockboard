@@ -434,6 +434,7 @@
       code: "001", slot: "周四001", league: "欧罗巴", date: "2026-10-23", kickoff: "00:45",
       home: "格风暴", away: "马赛", sp: "3.30 / 3.65 / 1.81",
       pick: "主", dual: false, env: "中可信", paperOppose: true, tag: "战意改向",
+      score: "1-0", result: "主", htScore: "1-0",
       ttgPicks: ["2球", "3球"], ftScores: ["1-0", "2-0"], hafuPicks: ["平胜", "胜胜"],
       summary: "客 1.81 是队名。风暴主场近 8 个 5 胜 2 平 1 负只丢 4 球；马赛近 8 个 6 负，欧战主场刚 0-1 奥林匹亚科斯。战意改向锁主。中可信少串。",
       factors: eleven({
@@ -454,6 +455,7 @@
       code: "002", slot: "周四002", league: "欧罗巴", date: "2026-10-23", kickoff: "00:45",
       home: "波兹南", away: "桑德兰", sp: "4.50 / 3.70 / 1.57",
       pick: "主", dual: false, env: "中可信", paperOppose: true, tag: "战意改向",
+      score: "1-1", result: "平", htScore: "0-1",
       ttgPicks: ["2球", "3球"], ftScores: ["2-0", "1-0"], hafuPicks: ["平胜", "胜胜"],
       summary: "客 1.57 是英超税。波兹南主场近 8 个 7 胜，欧战刚被药厂 0-4，这场主场必须给脸。桑德兰客场 2 胜 4 负，英超更当回事。战意改向锁主。",
       factors: eleven({
@@ -474,6 +476,7 @@
       code: "003", slot: "周四003", league: "欧罗巴", date: "2026-10-23", kickoff: "00:45",
       home: "萨迪纳摩", away: "奈梅亨", sp: "1.42 / 4.22 / 5.30",
       pick: "主/平", dual: true, env: "中可信", paperOppose: false, tag: "低赔不单",
+      score: "2-4", result: "客", htScore: "2-2",
       ttgPicks: ["3球", "4球"], ftScores: ["2-0", "3-1"], hafuPicks: ["胜胜", "平胜"],
       summary: "主 1.42。萨格勒布主场近 8 个 7 胜 1 平 0 负，刚 1-0 安德莱赫特。奈梅亨近 8 个 0 胜 5 平 3 负。内容同向，1.42 禁止死胆，锁主/平。",
       factors: eleven({
@@ -494,6 +497,7 @@
       code: "004", slot: "周四004", league: "欧罗巴", date: "2026-10-23", kickoff: "00:45",
       home: "尤文图斯", away: "雷恩", sp: "1.42 / 4.15 / 5.45",
       pick: "主/平", dual: true, env: "中可信", paperOppose: false, tag: "低赔不单",
+      score: "2-2", result: "平", htScore: "1-2",
       ttgPicks: ["2球", "3球"], ftScores: ["2-0", "1-1"], hafuPicks: ["胜胜", "平平"],
       summary: "主 1.42。尤文欧战 2-1 塞尔塔、5-0 奈梅亨，联赛刚 0-3 拉齐奥。伊尔迪兹、图拉姆、洛卡特利缺。雷恩能进。内容向主，低赔带平。",
       factors: eleven({
@@ -514,6 +518,7 @@
       code: "005", slot: "周四005", league: "欧罗巴", date: "2026-10-23", kickoff: "00:45",
       home: "OFI克里特", away: "勒沃库森", sp: "11.06 / 6.80 / 1.21",
       pick: "平/客", dual: true, env: "中可信", paperOppose: false, tag: "1.21禁止死胆",
+      score: "0-2", result: "客", htScore: "0-2",
       ttgPicks: ["3球", "4球"], ftScores: ["0-2", "1-3"], hafuPicks: ["负负", "平负"],
       summary: "客 1.21，让+2。药厂刚客场 4-0 波兹南。克里特能进也能漏。1.21 禁止死胆，锁平/客。",
       factors: eleven({
@@ -534,6 +539,7 @@
       code: "006", slot: "周四006", league: "欧罗巴", date: "2026-10-23", kickoff: "03:00",
       home: "伯恩茅斯", away: "AC米兰", sp: "1.80 / 3.55 / 3.42",
       pick: "主", dual: false, env: "中可信", paperOppose: false, tag: "跟一边",
+      score: "3-0", result: "主", htScore: "2-0",
       ttgPicks: ["2球", "3球"], ftScores: ["2-0", "1-0"], hafuPicks: ["胜胜", "平胜"],
       summary: "主 1.80。伯恩茅斯主场刚 2-0 桑德兰、欧战 3-0 风暴。米兰客场 4-0 萨尔茨堡，联赛刚 2-3 亚特兰大。主场近况同向，1.80 能单。少串。",
       factors: eleven({
@@ -554,6 +560,7 @@
       code: "007", slot: "周四007", league: "欧罗巴", date: "2026-10-23", kickoff: "03:00",
       home: "凯尔特人", away: "塞尔塔", sp: "2.48 / 3.25 / 2.39",
       pick: "主", dual: false, env: "中可信", paperOppose: false, tag: "主场给脸",
+      score: "1-2", result: "客", htScore: "0-0",
       ttgPicks: ["2球", "3球"], ftScores: ["1-0", "2-1"], hafuPicks: ["平胜", "胜胜"],
       summary: "对开 2.48 / 2.39。凯尔特人主场刚 7-1 哈茨，欧战客场 1-4 本菲卡。塞尔塔客场近 8 个只进 4 球。对开跟主场，不买两张。",
       factors: eleven({
@@ -574,6 +581,7 @@
       code: "008", slot: "周四008", league: "欧罗巴", date: "2026-10-23", kickoff: "03:00",
       home: "贝西克塔", away: "水晶宫", sp: "2.08 / 3.43 / 2.80",
       pick: "主", dual: false, env: "中可信", paperOppose: false, tag: "跟一边",
+      score: "2-2", result: "平", htScore: "1-0",
       ttgPicks: ["3球", "2球"], ftScores: ["2-0", "2-1"], hafuPicks: ["胜胜", "平胜"],
       summary: "主 2.08。贝西克塔主场近 8 个 8 胜，欧战 4-1 马赛。水晶宫客场近 8 个 1 胜 5 负失 20，刚 0-5 布莱顿。主客同向，锁主。",
       factors: eleven({
@@ -594,6 +602,7 @@
       code: "009", slot: "周四009", league: "欧罗巴", date: "2026-10-23", kickoff: "03:00",
       home: "霍芬海姆", away: "里昂", sp: "1.80 / 3.90 / 3.15",
       pick: "客", dual: false, env: "中可信", paperOppose: true, tag: "战意改向",
+      score: "3-0", result: "主", htScore: "1-0",
       ttgPicks: ["3球", "4球"], ftScores: ["1-2", "0-2"], hafuPicks: ["平负", "负负"],
       summary: "主 1.80 是德甲主场税。霍芬海姆近 8 个 6 负，欧战主场刚 2-3 贝西克塔。里昂近 8 个 5 胜，刚 3-2 水晶宫。战意改向锁客。",
       factors: eleven({
@@ -614,6 +623,7 @@
       code: "010", slot: "周四010", league: "欧罗巴", date: "2026-10-23", kickoff: "03:00",
       home: "利勒斯特", away: "皇家社会", sp: "5.20 / 4.30 / 1.42",
       pick: "平/客", dual: true, env: "中可信", paperOppose: false, tag: "低赔不单",
+      score: "0-6", result: "客", htScore: "0-3",
       ttgPicks: ["3球", "2球"], ftScores: ["0-2", "1-1"], hafuPicks: ["负负", "平负"],
       summary: "客 1.42。利勒斯特主场近 8 个 2 胜 4 负。社会客场能打，刚 5-2 马拉加。内容向客，1.42 禁止死胆，锁平/客。",
       factors: eleven({
@@ -634,6 +644,7 @@
       code: "013", slot: "周四013", league: "解放者杯", date: "2026-10-23", kickoff: "08:30",
       home: "弗拉门戈", away: "拉普大学", sp: "1.26 / 4.28 / 9.75",
       pick: "主/平", dual: true, env: "高可信", paperOppose: false, tag: "1.26禁止死胆",
+      score: "0-0", result: "平", htScore: "0-0",
       ttgPicks: ["1球", "2球"], ftScores: ["1-0", "2-0"], hafuPicks: ["胜胜", "平胜"],
       summary: "主 1.26，让-1。首回合 0-0。弗拉门戈主场近 8 个 7 胜，近 8 个不败。拉普客场 2 胜 5 负。深盘禁止死胆，锁主/平。首回合 0-0，进球盘 2 球最短，锁 1 球/2 球。",
       factors: eleven({
@@ -673,7 +684,7 @@
     OPEN_JC.forEach((src) => {
       if (!src.source) src.source = "board";
       const hit = rows.find((m) => m && (m.slot === src.slot || (sameOpen(m.home, src.home) && sameOpen(m.away, src.away))));
-      if (!hit || hit.score || hit.result) return;
+      if (!hit) return;
       hit.pick = src.pick;
       hit.dual = src.dual;
       hit.tag = src.tag;
@@ -691,25 +702,30 @@
       hit.lock = true;
       hit.action = src.dual ? "少买" : "买一边";
       if (src.sp) hit.sp = src.sp;
+      if (src.score) {
+        hit.score = src.score;
+        hit.result = src.result;
+        hit.htScore = src.htScore;
+      }
     });
     return rows;
   }
 
   const OPEN_SFC = [
-    { code: "1", home: "亚拉腊", away: "阿尔克马尔", combo: "10", sp: "5.80 / 4.48 / 1.50", r9: false },
-    { code: "2", home: "萨格勒布迪纳摩", away: "奈梅亨", combo: "31", sp: "1.42 / 4.22 / 5.30", r9: true },
-    { code: "3", home: "尤文图斯", away: "雷恩", combo: "31", sp: "1.42 / 4.15 / 5.45", r9: true },
-    { code: "4", home: "波兹南莱赫", away: "桑德兰", combo: "3", sp: "4.50 / 3.70 / 1.57", r9: false },
-    { code: "5", home: "克里特", away: "勒沃库森", combo: "10", sp: "11.06 / 6.80 / 1.21", r9: true },
-    { code: "6", home: "格拉茨风暴", away: "马赛", combo: "3", sp: "3.30 / 3.65 / 1.81", r9: true },
-    { code: "7", home: "贝西克塔斯", away: "水晶宫", combo: "3", sp: "2.08 / 3.43 / 2.80", r9: true },
-    { code: "8", home: "伯恩茅斯", away: "AC米兰", combo: "3", sp: "1.80 / 3.55 / 3.42", r9: true },
-    { code: "9", home: "凯尔特人", away: "维戈塞尔塔", combo: "3", sp: "2.48 / 3.25 / 2.39", r9: true },
-    { code: "10", home: "霍芬海姆", away: "里昂", combo: "0", sp: "1.80 / 3.90 / 3.15", r9: true },
-    { code: "11", home: "比亚韦斯托克", away: "安德莱赫特", combo: "0", sp: "3.00 / 3.53 / 2.24", r9: false },
-    { code: "12", home: "利勒斯特罗姆", away: "皇家社会", combo: "10", sp: "5.20 / 4.30 / 1.42", r9: false },
-    { code: "13", home: "奥林匹亚科斯", away: "布拉格斯巴达", combo: "31", sp: "1.50 / 4.36 / 5.97", r9: false },
-    { code: "14", home: "奥莫尼亚", away: "本菲卡", combo: "10", sp: "7.76 / 5.10 / 1.35", r9: true },
+    { code: "1", home: "亚拉腊", away: "阿尔克马尔", combo: "10", sp: "5.80 / 4.48 / 1.50", r9: false, score: "0-4", result: "客", htScore: "0-2" },
+    { code: "2", home: "萨格勒布迪纳摩", away: "奈梅亨", combo: "31", sp: "1.42 / 4.22 / 5.30", r9: true, score: "2-4", result: "客", htScore: "2-2" },
+    { code: "3", home: "尤文图斯", away: "雷恩", combo: "31", sp: "1.42 / 4.15 / 5.45", r9: true, score: "2-2", result: "平", htScore: "1-2" },
+    { code: "4", home: "波兹南莱赫", away: "桑德兰", combo: "3", sp: "4.50 / 3.70 / 1.57", r9: false, score: "1-1", result: "平", htScore: "0-1" },
+    { code: "5", home: "克里特", away: "勒沃库森", combo: "10", sp: "11.06 / 6.80 / 1.21", r9: true, score: "0-2", result: "客", htScore: "0-2" },
+    { code: "6", home: "格拉茨风暴", away: "马赛", combo: "3", sp: "3.30 / 3.65 / 1.81", r9: true, score: "1-0", result: "主", htScore: "1-0" },
+    { code: "7", home: "贝西克塔斯", away: "水晶宫", combo: "3", sp: "2.08 / 3.43 / 2.80", r9: true, score: "2-2", result: "平", htScore: "1-0" },
+    { code: "8", home: "伯恩茅斯", away: "AC米兰", combo: "3", sp: "1.80 / 3.55 / 3.42", r9: true, score: "3-0", result: "主", htScore: "2-0" },
+    { code: "9", home: "凯尔特人", away: "维戈塞尔塔", combo: "3", sp: "2.48 / 3.25 / 2.39", r9: true, score: "1-2", result: "客", htScore: "0-0" },
+    { code: "10", home: "霍芬海姆", away: "里昂", combo: "0", sp: "1.80 / 3.90 / 3.15", r9: true, score: "3-0", result: "主", htScore: "1-0" },
+    { code: "11", home: "比亚韦斯托克", away: "安德莱赫特", combo: "0", sp: "3.00 / 3.53 / 2.24", r9: false, score: "0-3", result: "客", htScore: "0-1" },
+    { code: "12", home: "利勒斯特罗姆", away: "皇家社会", combo: "10", sp: "5.20 / 4.30 / 1.42", r9: false, score: "0-6", result: "客", htScore: "0-3" },
+    { code: "13", home: "奥林匹亚科斯", away: "布拉格斯巴达", combo: "31", sp: "1.50 / 4.36 / 5.97", r9: false, score: "1-0", result: "主", htScore: "0-0" },
+    { code: "14", home: "奥莫尼亚", away: "本菲卡", combo: "10", sp: "7.76 / 5.10 / 1.35", r9: true, score: "1-4", result: "客", htScore: "1-1" },
   ];
 
   function sfcComboOf(combo) {
@@ -734,6 +750,11 @@
       if (src.sp) hit.sp = src.sp;
       hit.lock = true;
       hit.env = "中可信";
+      if (src.score) {
+        hit.score = src.score;
+        hit.result = src.result;
+        hit.htScore = src.htScore;
+      }
     });
     const nine = OPEN_SFC.filter((x) => x.r9).map((src) => {
       const hit = rows.find((m) => String(m.code) === String(src.code) || (sameOpen(m.home, src.home) && sameOpen(m.away, src.away)));
