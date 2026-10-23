@@ -393,6 +393,118 @@
     return pack;
   }
 
+  function tallySide(games) {
+    const n = (games || []).length;
+    return {
+      n: n,
+      w: (games || []).filter((g) => g.res === "W").length,
+      d: (games || []).filter((g) => g.res === "D").length,
+      l: (games || []).filter((g) => g.res === "L").length,
+      gf: (games || []).reduce((s, g) => s + (g.gf || 0), 0),
+      ga: (games || []).reduce((s, g) => s + (g.ga || 0), 0),
+      streak: (games || []).map((g) => g.res).join(""),
+      games: games || [],
+    };
+  }
+
+  function gamesFromFixtures(fixtures, teamId) {
+    return (fixtures || [])
+      .filter((g) => {
+        const st = g.status || {};
+        if (!st.finished) return false;
+        const comp = (g.tournament && g.tournament.name) || "";
+        if (/友谊|Friendly/i.test(comp)) return false;
+        return g.home && g.away && g.home.score != null && g.away.score != null;
+      })
+      .sort((a, b) => String((b.status && b.status.utcTime) || "").localeCompare(String((a.status && a.status.utcTime) || "")))
+      .slice(0, 8)
+      .map((g) => {
+        const ourHome = String(g.home.id) === String(teamId);
+        const gf = ourHome ? Number(g.home.score) : Number(g.away.score);
+        const ga = ourHome ? Number(g.away.score) : Number(g.home.score);
+        return {
+          date: String((g.status && g.status.utcTime) || "").slice(0, 10),
+          opp: ourHome ? g.away.name : g.home.name,
+          oppId: ourHome ? g.away.id : g.home.id,
+          home: ourHome,
+          gf: gf || 0,
+          ga: ga || 0,
+          res: gf > ga ? "W" : gf < ga ? "L" : "D",
+          score: String((g.status && g.status.scoreStr) || (g.home.score + "-" + g.away.score)).replace(/\s/g, ""),
+          comp: (g.tournament && g.tournament.name) || "",
+        };
+      });
+  }
+
+  function parseTeamPage(html, id) {
+    const marker = "<script id=\"__NEXT_DATA__\" type=\"application/json\">";
+    const i = String(html || "").indexOf(marker);
+    if (i < 0) return null;
+    const j = html.indexOf("</script>", i);
+    const data = JSON.parse(html.slice(i + marker.length, j));
+    const fb = (((data.props || {}).pageProps || {}).fallback) || {};
+    const key = Object.keys(fb).find((k) => k.indexOf("team-" + id) === 0);
+    return (key && fb[key]) || fb["team-" + id] || null;
+  }
+
+  async function readText(url) {
+    if (global.CC_LIVE && CC_LIVE.getText) return CC_LIVE.getText(url);
+    const res = await fetch(url, { cache: "no-store" });
+    return res.text();
+  }
+
+  async function pullTeam(id) {
+    if (!id) return [];
+    const url = "https://www.fotmob.com/teams/" + id;
+    const html = await readText(url);
+    const team = parseTeamPage(html, id);
+    if (!team) return [];
+    return gamesFromFixtures((((team.fixtures || {}).allFixtures || {}).fixtures) || [], id);
+  }
+
+  function teamIdsOf(m) {
+    const pack = lookup(m) || m.form || {};
+    const raw = (global.CC_NEWS_CACHE && CC_NEWS_CACHE.bySlot && (CC_NEWS_CACHE.bySlot[m.slot] || {})) || {};
+    return {
+      homeId: pack.homeId || raw.homeId,
+      awayId: pack.awayId || raw.awayId,
+      homeEn: pack.homeEn || "",
+      awayEn: pack.awayEn || "",
+    };
+  }
+
+  async function pullLive(matches, opt) {
+    const force = !!(opt && opt.force);
+    const list = (matches || []).filter((m) => m && /周[一二三四五六日]\d{3}/.test(String(m.slot || "")));
+    const cap = force ? 6 : 4;
+    let used = 0;
+    for (let i = 0; i < list.length && used < cap; i += 1) {
+      const m = list[i];
+      const ids = teamIdsOf(m);
+      const prev = lookup(m) || {};
+      const thinHome = !(((prev.homeSide || {}).recent || {}).n);
+      const thinAway = !(((prev.awaySide || {}).recent || {}).n);
+      if (!force && !thinHome && !thinAway) continue;
+      if (!ids.homeId && !ids.awayId) continue;
+      try {
+        const hg = (force || thinHome) && ids.homeId ? await pullTeam(ids.homeId) : ((((prev.homeSide || {}).recent || {}).games) || []);
+        const ag = (force || thinAway) && ids.awayId ? await pullTeam(ids.awayId) : ((((prev.awaySide || {}).recent || {}).games) || []);
+        if ((force || thinHome) && ids.homeId) used += 1;
+        if ((force || thinAway) && ids.awayId) used += 1;
+        ingestLive(m, {
+          homeId: ids.homeId,
+          awayId: ids.awayId,
+          homeEn: ids.homeEn,
+          awayEn: ids.awayEn,
+          homeSide: { recent: tallySide(hg), venue: tallySide(hg.filter((g) => g.home)) },
+          awaySide: { recent: tallySide(ag), road: tallySide(ag.filter((g) => !g.home)) },
+        });
+      } catch (err) { /* 单队失败不影响整轮 */ }
+    }
+    saveLive();
+    return used;
+  }
+
   const FORM_STORE = "jczq-cc-form-live-v1";
 
   function loadLive() {
@@ -411,5 +523,5 @@
     } catch (err) { /* ignore */ }
   }
 
-  global.CC_FORM = { attachAll, lookup, wd, injText, willOf, fillFactors, ingestLive, loadLive, saveLive, leagueProfile, h2hOf, buildH2h, paperTalk, thin };
+  global.CC_FORM = { attachAll, lookup, wd, injText, willOf, fillFactors, ingestLive, pullLive, loadLive, saveLive, leagueProfile, h2hOf, buildH2h, paperTalk, thin };
 })(window);

@@ -447,5 +447,17 @@
     return { matches, live: false, updatedAt: cache.updatedAt || "" };
   }
 
-  global.CC_LIVE = { pull, pullSfc, pullBjdc, pullScores, n, shortLeague, matchKey, hadOfScore, getJson: loadJson, fetchFotmobDay };
+  async function getText(url) {
+    try {
+      return await loadText(url);
+    } catch (e1) {
+      try {
+        return await loadText("https://cors.eu.org/" + url);
+      } catch (e2) {
+        return loadText("https://api.allorigins.win/raw?url=" + encodeURIComponent(url));
+      }
+    }
+  }
+
+  global.CC_LIVE = { pull, pullSfc, pullBjdc, pullScores, n, shortLeague, matchKey, hadOfScore, getJson: loadJson, getText: getText, fetchFotmobDay };
 })(window);

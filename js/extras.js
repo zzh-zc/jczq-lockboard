@@ -1041,8 +1041,27 @@
         m.id = m.slot || `${m.issueDate || m.date}-${m.code}`;
       });
     });
+    pruneToJc();
   }
 
-  global.CC_EXTRAS = { attach, tally, applyOpen, applySfcOpen };
+  function isOpenRow(m) {
+    if (!m) return false;
+    const inOpen = OPEN_JC.some((src) => m.slot === src.slot || (sameOpen(m.home, src.home) && sameOpen(m.away, src.away)));
+    const inPast = PAST_JC.some((src) => m.slot === src.slot || (src.home === m.home && src.away === m.away));
+    return inOpen || inPast;
+  }
+
+  function pruneToJc() {
+    if (!global.CC_DATA || !CC_DATA.jczq) return;
+    CC_DATA.jczq.matches = (CC_DATA.jczq.matches || []).filter((m) => {
+      if (!m || m.source === "sfc-history") return false;
+      if (m.source === "live") return true;
+      if (isOpenRow(m)) return true;
+      if (m.source === "hist") return /周[一二三四五六日]\d{3}/.test(String(m.slot || ""));
+      return false;
+    });
+  }
+
+  global.CC_EXTRAS = { attach, tally, applyOpen, applySfcOpen, pruneToJc };
   if (global.CC_DATA) attach();
 })(window);

@@ -989,6 +989,9 @@
         if (window.CC_PRED && CC_PRED.hydrateHistory) CC_PRED.hydrateHistory();
         if (window.CC_NEWS && CC_NEWS.pullLive) {
           try { await CC_NEWS.pullLive((CC_DATA.jczq && CC_DATA.jczq.matches) || [], { force: !!force }); } catch (e3) { /* 消息源拦了先用缓存 */ }
+          try {
+            if (window.CC_FORM && CC_FORM.pullLive) await CC_FORM.pullLive((CC_DATA.jczq && CC_DATA.jczq.matches) || [], { force: !!force });
+          } catch (e5) { /* 球队页拦了先用缓存 */ }
           CC_PRED.finish();
           if (window.CC_BOARD) CC_BOARD.pruneAndSave();
           if (window.CC_PRED && CC_PRED.hydrateHistory) CC_PRED.hydrateHistory();

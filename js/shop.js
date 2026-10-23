@@ -34,8 +34,12 @@
     return hit ? hit[0] : wd(issueKey(m));
   }
 
+  function isJcFoot(m) {
+    return !!(m && m.source !== "sfc-history" && /周[一二三四五六日]\d{3}/.test(String(m.slot || "")));
+  }
+
   function all() {
-    const list = (((global.CC_DATA || {}).jczq || {}).matches || []).filter((m) => m && m.source !== "sfc-history");
+    const list = (((global.CC_DATA || {}).jczq || {}).matches || []).filter(isJcFoot);
     const stamped = list.map((m) => {
       const row = (global.CC_ODDS && CC_ODDS.stampIssue) ? CC_ODDS.stampIssue(m) : m;
       if (global.CC_ODDS && CC_ODDS.scrubUnplayed) CC_ODDS.scrubUnplayed(row);
@@ -377,7 +381,8 @@
   function renderInfo() {
     const cur = all().find((m) => (m.id || slotOf(m)) === state.selected) || dayList()[0];
     if (!cur) { state.info = false; renderList(); return; }
-    if (cur.date) state.date = cur.date;
+    const iss = issueKey(cur);
+    if (iss) state.date = iss;
     const list = dayList();
     state.selected = cur.id || slotOf(cur);
     const lg = logos(cur);

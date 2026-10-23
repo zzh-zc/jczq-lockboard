@@ -793,8 +793,12 @@
     const keep = old.filter((m) => {
       if (!m || seen.has(keyOf(m))) return false;
       if (locked.some((n) => sameTeam(n.home, m.home) && sameTeam(n.away, m.away) && nearIssue(n, m))) return false;
-      if (!m.source) m.source = "board";
-      return true;
+      if (m.source === "sfc-history") return false;
+      const jc = /周[一二三四五六日]\d{3}/.test(String(m.slot || ""));
+      if (m.source === "live") return true;
+      if (m.source === "hist") return jc;
+      if (m.source === "board") return jc;
+      return false;
     });
     capDual(locked.filter((m) => !m.score && !m.result));
     realign(locked);
@@ -1179,12 +1183,10 @@
     const today = todayIso();
     const cur = (CC_DATA.jczq.matches || []).filter((m) => m && m.source !== "hist" && m.source !== "sfc-history");
     const extra = [];
-    const rows = [].concat(
-      ((global.CC_RESULT_CACHE || {}).matches) || [],
-      ((global.CC_REVIEW_CACHE || {}).matches) || []
-    );
+    const rows = ((global.CC_RESULT_CACHE || {}).matches) || [];
     rows.forEach((row) => {
       if (!row || !row.date || (cut && row.date < cut) || row.date > today) return;
+      if (!/周[一二三四五六日]\d{3}/.test(String(row.slot || ""))) return;
       if (alreadyHave(cur, row) || alreadyHave(extra, row)) return;
       const locked = histLock(row);
       const iss = locked.issueDate || locked.date;
