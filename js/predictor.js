@@ -341,7 +341,7 @@
 
   function realign(list) {
     (list || []).forEach((m) => {
-      if (!m._mk || m.score || m.result) return;
+      if (m.manuscript || !m._mk || m.score || m.result) return;
       fillMarkets(m, m._mk, m._mk.had, m._mk.line);
     });
   }
@@ -948,6 +948,7 @@
 
   function applySteady(m) {
     if (!m || m.source !== "live") return;
+    if (m.manuscript) return;
     if (m.score || m.result) return;
     if (m.light === "red") return;
     if (global.CC_FORM && CC_FORM.fillFactors && !m.draft) CC_FORM.fillFactors(m, m.form);

@@ -981,6 +981,7 @@
       hit.htScores = src.hafuPicks;
       hit.htOu = src.hafuPicks;
       if (global.CC_PRED && CC_PRED.alignTtgCrs) CC_PRED.alignTtgCrs(hit);
+      hit.manuscript = true;
       hit.light = src.dual ? "yellow" : "green";
       hit.lock = true;
       hit.action = src.dual ? "少买" : "买一边";
