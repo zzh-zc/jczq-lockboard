@@ -18,36 +18,25 @@
 
 赔率走势优先用 500 百家平均初盘→即时；拉不到时退回竞彩官方 SP。红灯只警告「热门单边别碰」，锁号仍会给不败。
 
-## 历史锁号数据库（推荐）
+## 历史锁号（不用自启服务）
 
-静态页 + 浏览器 localStorage 扛不住「近十天、已完赛不改号」。可挂载 **SQLite** 小服务：
+和 `jc-cache.js` / `result-cache.js` 一样：**锁号归档挂在 GitHub 仓库**，Pages 只读加载。
 
-```bash
-cd server
-pip install -r requirements.txt
-# 可选：export JCZQ_API_KEY=你的写入密钥
-python app.py
-# 或：docker compose up -d   （数据在 server/data/jczq.db）
-```
+| 文件 | 作用 |
+|------|------|
+| `js/history-lock-cache.js` | 已完赛、已封存的十一点锁号（页面 **不会** 再改） |
+| `js/result-cache.js` | 赛果明细 |
 
-前端 `js/config.js` 填写：
-
-```javascript
-historyApi: "http://你的服务器:8787",
-historyKey: "与 JCZQ_API_KEY 相同",
-```
-
-规则：
-
-- 场次 **已有赛果 + 十一点锁号** 时，`finish()` 会 **封存** 到库；
-- 库内 `sealed=1` 的记录 **锁号/进球/比分字段永不更新**（重复 POST 直接 skipped）；
-- 页面加载先 **GET /api/history**，覆盖 AI 回放，只读展示。
-
-灌历史（仅有赛果、缺锁号的需先在 OPEN 底稿补全再封存）：
+比完一场、底稿定稿后，在本机跑一次生成并 push（**不用常驻进程**）：
 
 ```bash
-python _probe/seed_history_db.py
+node scripts/build-history-lock-cache.mjs
+git add js/history-lock-cache.js && git commit -m "归档历史锁号" && git push
 ```
+
+GitHub Actions 跑在 GitHub 机房，不是你电脑；若要全自动日更，以后可加 workflow，仍无需你启动服务。
+
+**做不到的事（直说）**：纯浏览器 **不能** 安全地往公共数据库写全员可见的历史——没有第三方写入口就得靠 **git push** 更新缓存文件。`server/` 自建 API 仅可选，默认忽略。
 
 ## 本地打开
 

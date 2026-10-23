@@ -341,7 +341,7 @@
 
   function realign(list) {
     (list || []).forEach((m) => {
-      if (m.sealed || m.source === "db") return;
+      if (global.CC_HISTORY_DB && CC_HISTORY_DB.isFrozen(m)) return;
       if (m.manuscript || !m._mk || m.score || m.result) return;
       fillMarkets(m, m._mk, m._mk.had, m._mk.line);
     });
@@ -949,7 +949,7 @@
 
   function applySteady(m) {
     if (!m || m.source !== "live") return;
-    if (m.sealed || m.source === "db") return;
+    if (global.CC_HISTORY_DB && CC_HISTORY_DB.isFrozen(m)) return;
     if (m.manuscript) return;
     if (m.score || m.result) return;
     if (m.light === "red") return;
@@ -1147,8 +1147,8 @@
 
   function histLock(row) {
     const frozen = ((global.CC_DATA || {}).jczq || {}).matches || [];
-    const dbHit = frozen.find((m) => m && m.slot === row.slot && (m.sealed || m.source === "db"));
-    if (dbHit) return Object.assign({}, dbHit);
+    const arcHit = frozen.find((m) => m && m.slot === row.slot && global.CC_HISTORY_DB && CC_HISTORY_DB.isFrozen(m));
+    if (arcHit) return Object.assign({}, arcHit);
     if (global.CC_HISTORY_DB && CC_HISTORY_DB.isFrozen(row)) return null;
     const fromBoard = histFromBoard(row);
     if (fromBoard) return fromBoard;
@@ -1245,7 +1245,7 @@
     applySteadyAll();
     capDual((((global.CC_DATA || {}).jczq || {}).matches || []).filter((m) => m.source === "live" && !m.result));
     ((((global.CC_DATA || {}).jczq || {}).matches) || []).forEach((m) => {
-      if (m && m.source !== "hist") backfillMarkets(m);
+      if (m && m.source !== "hist" && !(global.CC_HISTORY_DB && CC_HISTORY_DB.isFrozen(m))) backfillMarkets(m);
     });
     ["jczq", "beidan", "r14", "r9"].forEach((key) => {
       realign(((global.CC_DATA || {})[key] || {}).matches);
@@ -1269,7 +1269,7 @@
     if (global.CC_EXTRAS && CC_EXTRAS.applyOpen) CC_EXTRAS.applyOpen();
     if (global.CC_HISTORY_DB && CC_HISTORY_DB.sealFinished) {
       const list = (((global.CC_DATA || {}).jczq || {}).matches) || [];
-      CC_HISTORY_DB.sealFinished(list.filter((m) => m && !m.sealed && m.source !== "db"));
+      CC_HISTORY_DB.sealFinished(list.filter((m) => m && !CC_HISTORY_DB.isFrozen(m)));
     }
     explainAll();
   }

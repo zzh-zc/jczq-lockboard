@@ -1138,7 +1138,7 @@
       if (!jcFootSlot(m)) return false;
       if (m.source === "live") return true;
       if (isOpenRow(m)) return true;
-      if (m.source === "hist" || m.source === "board" || m.source === "db") return inTenDay(m);
+      if (m.source === "hist" || m.source === "board" || m.source === "db" || m.source === "archive") return inTenDay(m);
       if (m.sealed) return inTenDay(m);
       return inTenDay(m) && (m.pick || m.score || m.result);
     });

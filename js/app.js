@@ -973,8 +973,8 @@
     const hint = $("refreshHint");
     if (hint) hint.textContent = force ? "正在拉盘口、消息和预测…" : "正在拉最新锁号…";
     try {
-      if (window.CC_HISTORY_DB && global.CC_CONFIG && CC_CONFIG.historyApi) {
-        try { await CC_HISTORY_DB.loadIntoData(); } catch (e0) { /* 历史库离线 */ }
+      if (window.CC_HISTORY_DB) {
+        try { await CC_HISTORY_DB.loadIntoData(); } catch (e0) { /* 历史归档离线 */ }
       }
       if (window.CC_LIVE && window.CC_PRED) {
         let pack = await CC_LIVE.pull();
@@ -1044,8 +1044,8 @@
     if (window.CC_FORM && CC_FORM.loadLive) CC_FORM.loadLive();
     if (window.CC_NEWS && CC_NEWS.loadLive) CC_NEWS.loadLive();
     if (window.CC_BOARD) CC_BOARD.load();
-    if (window.CC_HISTORY_DB && global.CC_CONFIG && CC_CONFIG.historyApi) {
-      try { await CC_HISTORY_DB.loadIntoData(); } catch (e0) { /* 历史库离线 */ }
+    if (window.CC_HISTORY_DB) {
+      try { await CC_HISTORY_DB.loadIntoData(); } catch (e0) { /* 历史归档离线 */ }
     }
     if (window.CC_FORM) CC_FORM.attachAll();
     if (window.CC_NEWS) CC_NEWS.boot();
